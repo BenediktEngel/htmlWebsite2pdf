@@ -1,5 +1,5 @@
-import { ObjectType } from 'enums';
-import { IntegerObject, NumericObject } from 'objects';
+import PDFDocument from '../pdfDocument';
+import { NumericObject } from '../objects/BasicObjects';
 import { CrossReferenceSection } from './CrossReferenceSection';
 
 export interface ICrossReferenceTable {
@@ -8,16 +8,23 @@ export interface ICrossReferenceTable {
 }
 
 export class CrossReferenceTable implements ICrossReferenceTable {
-  _size: NumericObject = new IntegerObject(0, ObjectType.DIRECT);
+  _size: NumericObject;
+
+  pdf: PDFDocument;
 
   private _sections: Array<CrossReferenceSection> = [];
 
-  constructor(sections: Array<CrossReferenceSection> = []) {
-    this.sections = sections;
+  constructor(pdf: PDFDocument, sections: Array<CrossReferenceSection> = []) {
+    this.pdf = pdf;
+    this._size = new NumericObject(pdf, 0);
+    this._sections = sections;
+    if (!this._sections.filter((sec) => sec.firstId === 0).length) {
+      this.addSection(new CrossReferenceSection(this.pdf, 0, 0, 65535, false));
+    }
   }
 
   outputTable(): string {
-    let table = 'xref\n';
+    let table = 'xref\r';
     this._sections.forEach((section) => {
       table += `${section.outputSection()}`;
     });
@@ -34,6 +41,16 @@ export class CrossReferenceTable implements ICrossReferenceTable {
 
   addSection(section: CrossReferenceSection): void {
     this.sections = [...this.sections, section];
+  }
+
+  addEntry(id: number, byteOffset: number, generation: number, inUse = true): void {
+    let section = this._sections.find((sec) => sec.firstId === id + 1 || sec.firstId + sec.entries.length === id);
+    if (!section) {
+      section = new CrossReferenceSection(this.pdf, id, byteOffset, generation, inUse);
+      this.addSection(section);
+    } else {
+      section.addEntry(id, byteOffset, generation, inUse);
+    }
   }
 
   get size(): NumericObject {

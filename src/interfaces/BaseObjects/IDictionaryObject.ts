@@ -1,8 +1,24 @@
-import { IBaseObject } from 'interfaces';
-import { NameObject, NullObject, ArrayObject, BooleanObject, NumericObject, StringObject, StreamObject, DictionaryObject } from 'objects';
+import { IBaseObject } from './IBaseObject';
+import {
+  NameObject,
+  BaseObject,
+  ArrayObject,
+  BooleanObject,
+  DictionaryObject,
+  IntegerObject,
+  NullObject,
+  NumericObject,
+  StreamObject,
+  StringObject,
+} from '../../objects/BasicObjects';
 
 export interface IDictionaryObject extends IBaseObject {
-  value: Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>;
+  value: Map<
+    NameObject,
+    ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject
+  >;
 
-  outputObject(): string;
+  toString(): string;
+  getValueByKey(key: NameObject | string): BaseObject | undefined;
+  setValueByKey(key: NameObject | string, value: BaseObject): void;
 }

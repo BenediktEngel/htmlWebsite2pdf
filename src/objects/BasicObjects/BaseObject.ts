@@ -1,58 +1,112 @@
-import { ObjectType } from 'enums';
-import { IBaseObject } from 'interfaces';
+import { IBaseObject } from '../../interfaces';
+import { PDFDocument } from '../../pdfDocument';
 
+/**
+ * Base class for all PDF objects
+ * @class
+ * @abstract
+ * @implements IBaseObject
+ */
 export abstract class BaseObject implements IBaseObject {
-  readonly objectId: number | undefined = undefined;
+  /**
+   * Object ID if object is indirect
+   * @private
+   */
+  private _id: number | undefined = undefined;
 
-  readonly generation: number | undefined = 0;
+  /**
+   * Object generation if object is indirect
+   * @private
+   */
+  private _generation: number | undefined = undefined;
 
-  readonly type: ObjectType;
+  /**
+   * The PDF document the object belongs to
+   * @readonly
+   */
+  readonly pdfDocument: PDFDocument;
 
-  readonly isFree: boolean = false;
-
-  private _byteOffset: number | undefined = undefined;
-
-  constructor(type: ObjectType = ObjectType.DIRECT, id?: number, generation?: number) {
-    this.type = type;
-    if (this.isIndirect() && id === undefined) throw new Error('ID is required for indirect objects');
-    if (!this.isIndirect()) {
-      this.generation = undefined;
-    } else {
-      this.objectId = id;
-      if (generation !== undefined) this.generation = generation;
+  /**
+   * Create new BaseObject instance
+   * @constructor
+   * @param {PDFDocument} pdf The PDF document the object belongs to
+   * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
+   */
+  constructor(pdf: PDFDocument, shouldBeIndirect = false) {
+    this.pdfDocument = pdf;
+    if (shouldBeIndirect) {
+      this.toIndirect();
     }
   }
 
-  outputObject(value: string): string {
-    return this.isIndirect() ? `${this.objectId} ${this.generation} obj\n${value}\nendobj` : value;
+  /**
+   * Check if object is indirect
+   * @returns {boolean} Whether the object is indirect or not
+   */
+  isIndirect() {
+    return this._id !== undefined;
   }
 
-  getReference(): string | undefined {
-    return this.isIndirect() ? `${this.objectId} ${this.generation} R` : undefined;
-  }
-
-  isIndirect(): boolean {
-    return this.type === ObjectType.INDIRECT;
-  }
-
-  ouputCrossReferenceData(): string | undefined {
+  /**
+   * Transform an direct object into an indirect object
+   * @param {number} generation - Object generation, defaults to 0
+   * @returns {void}
+   * @throws {Error} - If object is already indirect
+   */
+  toIndirect(generation = 0) {
     if (this.isIndirect()) {
-      // TODO: We need to make sure that the byte offset is set!
-      const generationLength = this.generation!.toString().length;
-      const byteOffsetLength = this._byteOffset!.toString().length;
-      return `${'0'.repeat(10 - byteOffsetLength)}${this._byteOffset} ${'0'.repeat(5 - generationLength)}${this.generation} ${
-        this.isFree ? 'f' : 'n'
-      }\n`;
+      throw new Error('Object is already indirect');
     }
-    return undefined;
+    this._id = this.pdfDocument.addIndirectObject(this, generation);
+    this._generation = generation;
   }
 
-  public set byteOffset(value: number | undefined) {
-    this._byteOffset = value;
+  /**
+   * Returns a string representation of the object which is used to place it in the PDF file
+   * @param {string} value - The value of the subclass
+   * @returns {string} The string representation of the object
+   */
+  toString(value?: string): string {
+    if (this.isIndirect()) {
+      return `${this.id} ${this.generation} obj\r${value}\rendobj`;
+    }
+    return value || '';
   }
 
-  public get byteOffset(): number | undefined {
-    return this._byteOffset;
+  /**
+   * Returns the reference of the object for adding it to the PDF if it is indirect
+   * @returns {string} The reference of the object
+   * @throws {Error} - If object is not indirect
+   */
+  getReference(): string {
+    if (!this.isIndirect()) {
+      throw new Error('Object is not indirect');
+    }
+    return `${this.id} ${this.generation} R`;
+  }
+
+  /**
+   * Returns the object ID if the object is indirect
+   * @returns {number} The object ID
+   * @throws {Error} - If object is not indirect
+   */
+  get id(): number | undefined {
+    if (!this.isIndirect()) {
+      throw new Error('Object is not indirect');
+    }
+    return this._id;
+  }
+
+  /**
+   * Returns the object generation if the object is indirect
+   * @returns {number} The object generation
+   * @throws {Error} - If object is not indirect
+   */
+  get generation(): number | undefined {
+    if (!this.isIndirect()) {
+      throw new Error('Object is not indirect');
+    }
+    return this._generation;
   }
 }
 

@@ -1,25 +1,41 @@
-import { BaseObjects, ObjectType, PdfVersion, IntermediateObjects } from 'enums';
-import { IDocumentStructureDictionary } from 'interfaces';
+import { BaseObjects, PdfVersion, IntermediateObject } from '../../enums';
+import { IDocumentStructureDictionary } from '../../interfaces';
 import {
-  DictionaryObject,
   NameObject,
   ArrayObject,
   BooleanObject,
+  DictionaryObject,
+  IntegerObject,
   NullObject,
   NumericObject,
   StreamObject,
   StringObject,
-  DocumentStructureDictionary,
-} from 'objects';
-import { TRequiredValues, TOptionalValues } from 'types';
+} from '../BasicObjects';
+import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
+import { PDFDocument } from '../../pdfDocument';
+import { TRequiredValue, TOptionalValue } from '../../types';
 
+/**
+ * Class representing a Catalog object in a PDF document.
+ * @class Catalog
+ * @extends {DocumentStructureDictionary}
+ * @implements {IDocumentStructureDictionary}
+ */
 export class CatalagDictionary extends DocumentStructureDictionary implements IDocumentStructureDictionary {
-  readonly requieredValues: Array<TRequiredValues> = [
+  /**
+   * The requiered values of the dictionary object.
+   * @readonly
+   */
+  readonly requieredValues: Array<TRequiredValue> = [
     { name: 'Type', type: BaseObjects.NAME },
-    { name: 'Pages', type: IntermediateObjects.PAGES },
+    { name: 'Pages', type: IntermediateObject.PAGES },
   ];
 
-  readonly optionalValues: Array<TOptionalValues> = [
+  /**
+   * The optional values of the dictionary object.
+   * @readonly
+   */
+  readonly optionalValues: Array<TOptionalValue> = [
     { name: 'Version', type: BaseObjects.NAME },
     { name: 'Extensions', type: BaseObjects.DICTIONARY },
     // {name: 'PageLabels' , type: , minVersion: PdfVersions.V1_3}, // TODO: type is numbertree
@@ -49,31 +65,22 @@ export class CatalagDictionary extends DocumentStructureDictionary implements ID
     { name: 'NeedsRendering', type: BaseObjects.BOOLEAN, minVersion: PdfVersion.V1_7 },
   ];
 
-  readonly fixedValues: Map<
-    NameObject,
-    NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject
-  > = new Map([[new NameObject('Type'), new NameObject('Catalog')]]);
-
+  /**
+   * Creates an instance of Catalog.
+   * @constructor
+   * @param {PDFDocument} pdf The PDF document to which the object belongs to
+   * @param {Map<NameObject, BaseObject>} [value=new Map()] The value of the dictionary object, defaults to an empty map.
+   * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
+   */
   constructor(
-    value: Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>,
-    type: ObjectType = ObjectType.DIRECT,
-    id?: number,
-    generation?: number,
+    pdf: PDFDocument,
+    value: Map<
+      NameObject,
+      ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject
+    > = new Map(),
+    shouldBeIndirect = false,
   ) {
-    super(value, type, id, generation);
-    // TODO: remove this part cause we want to check later if the requiered values are set
-    this.requieredValues.forEach((requiredValue) => {
-      switch (requiredValue.type) {
-        case BaseObjects.NAME:
-          this.value.set(new NameObject(requiredValue.name), new NameObject(''));
-          break;
-        case BaseObjects.DICTIONARY:
-          this.value.set(new NameObject(requiredValue.name), new DictionaryObject(new Map()));
-          break;
-        default:
-          break;
-      }
-    });
+    super(pdf, value, shouldBeIndirect);
   }
 }
 

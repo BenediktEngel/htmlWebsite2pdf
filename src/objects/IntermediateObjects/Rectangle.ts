@@ -1,30 +1,30 @@
-import { ArrayObject, IntegerObject } from 'objects';
-import { IRectangle } from 'interfaces';
-import { ObjectType } from 'enums';
+import { ArrayObject, IntegerObject } from '../BasicObjects';
+import PDFDocument from '../../pdfDocument';
 
-export class Rectangle extends ArrayObject implements IRectangle {
-  // Value is set by super class
-  _value!: Array<IntegerObject>;
-
-  constructor(
-    lowerLeftX: number,
-    lowerLeftY: number,
-    upperLeftX: number,
-    upperLeftY: number,
-    type: ObjectType = ObjectType.DIRECT,
-    id?: number,
-    generation?: number,
-  ) {
-    const value = [new IntegerObject(lowerLeftX), new IntegerObject(lowerLeftY), new IntegerObject(upperLeftX), new IntegerObject(upperLeftY)];
-    super(value, type, id, generation);
-  }
-
-  get value(): Array<IntegerObject> {
-    return this._value;
-  }
-
-  set value(value: Array<IntegerObject>) {
-    this._value = value;
+/**
+ * Represents a rectangle in a PDF document. Mainly to create easy an array object with 4 integer objects.
+ * @class Rectangle
+ * @extends {ArrayObject}
+ */
+export class Rectangle extends ArrayObject {
+  /**
+   * Creates an instance of Rectangle.
+   * @param {PDFDocument} pdf The PDF document this rectangle is associated with.
+   * @param {number} lowerLeftX The lower left x coordinate.
+   * @param {number} lowerLeftY The lower left y coordinate.
+   * @param {number} upperLeftX The upper right x coordinate.
+   * @param {number} upperLeftY The upper right y coordinate.
+   * @param {boolean} [shouldBeIndirect=false] Should the object be indirect?
+   * @memberof Rectangle
+   */
+  constructor(pdf: PDFDocument, lowerLeftX: number, lowerLeftY: number, upperLeftX: number, upperLeftY: number, shouldBeIndirect = false) {
+    const value = [
+      new IntegerObject(pdf, lowerLeftX),
+      new IntegerObject(pdf, lowerLeftY),
+      new IntegerObject(pdf, upperLeftX),
+      new IntegerObject(pdf, upperLeftY),
+    ];
+    super(pdf, value, shouldBeIndirect);
   }
 }
 

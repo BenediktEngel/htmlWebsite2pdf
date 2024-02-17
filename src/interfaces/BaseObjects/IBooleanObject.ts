@@ -1,7 +1,7 @@
-import { IBaseObject } from 'interfaces';
+import { IBaseObject } from './IBaseObject';
 
 export interface IBooleanObject extends IBaseObject {
   value: boolean;
 
-  outputObject(): string;
+  toString(): string;
 }

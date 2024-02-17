@@ -1,8 +1,8 @@
-import { IArrayObject } from 'interfaces';
-import { IntegerObject } from 'objects';
+import { IArrayObject } from '../interfaces/BaseObjects';
+import { IntegerObject } from '../objects/BasicObjects';
 
 export interface IRectangle extends IArrayObject {
-  value: Array<IntegerObject>;
+  // TODO: Delete or add special values
 }
 
 export default IRectangle;

@@ -1,7 +1,7 @@
-import { IBaseObject } from 'interfaces';
+import { IBaseObject } from './IBaseObject';
 
 export interface INameObject extends IBaseObject {
   value: string;
 
-  outputObject(): string;
+  toString(): string;
 }

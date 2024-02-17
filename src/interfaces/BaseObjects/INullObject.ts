@@ -1,6 +1,6 @@
-import { IBaseObject } from 'interfaces';
+import { IBaseObject } from 'index';
 
 export interface INullObject extends IBaseObject {
   value: null;
-  outputObject(): string;
+  toString(): string;
 }

@@ -12,25 +12,26 @@ import {
   StreamObject,
   StringObject,
 } from '../BasicObjects';
-import { PDFDocument } from '../../pdfDocument';
-import { TRequiredValue, TOptionalValue } from '../../types';
 import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
+import { PDFDocument } from '../../pdfDocument';
+import { TOptionalValue, TRequiredValue } from '../../types';
 
 /**
- * Class representing a Page object in a PDF document.
- * @class Page
+ * Class representing a PageTree object in a PDF document.
+ * @class PageTree
  * @extends {DocumentStructureDictionary}
  * @implements {IDocumentStructureDictionary}
  */
-export class Page extends DocumentStructureDictionary implements IDocumentStructureDictionary {
+export class PageTree extends DocumentStructureDictionary implements IDocumentStructureDictionary {
   /**
    * The requiered values of the dictionary object.
    * @readonly
    */
   readonly requieredValues: Array<TRequiredValue> = [
     { name: 'Type', type: BaseObjects.NAME },
+    { name: 'Kids', type: BaseObjects.ARRAY },
     { name: 'Count', type: BaseObjects.NUMERIC },
-    { name: 'Parent', type: BaseObjects.DICTIONARY },
+    { name: 'Parent', type: BaseObjects.DICTIONARY, exception: () => this.pdfDocument.root !== this },
   ];
 
   /**
@@ -69,9 +70,9 @@ export class Page extends DocumentStructureDictionary implements IDocumentStruct
   ];
 
   /**
-   * Creates an instance of Page.
+   * Creates an instance of PageTree.
    * @param {PDFDocument} pdf The PDF document to which the object belongs to
-   * @param {Map<NameObject, BaseObject>} [value=new Map()] The value of the dictionary object, defaults to an empty map.
+   * @param {Map({NameObject, ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject})} [value=new Map()] The value of the dictionary object, defaults to an empty map.
    * @param {boolean} [shouldBeIndirect=false] Wheter the object should be indirect or not, defaults to false.
    * @constructor
    */
@@ -87,4 +88,4 @@ export class Page extends DocumentStructureDictionary implements IDocumentStruct
   }
 }
 
-export default Page;
+export default PageTree;

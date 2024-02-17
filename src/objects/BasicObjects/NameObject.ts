@@ -1,25 +1,69 @@
-import { ObjectType } from 'enums';
-import { INameObject } from 'interfaces';
-import { BaseObject } from 'objects';
+import { INameObject } from '../../interfaces';
+import { BaseObject } from './BaseObject';
+import { PDFDocument } from '../../pdfDocument';
 
+/**
+ * NameObject class, used to represent a name object in a PDF document.
+ * @class NameObject
+ * @implements {INameObject}
+ * @extends {BaseObject}
+ */
 export class NameObject extends BaseObject implements INameObject {
-private  _value: string;
+  /**
+   * The value of the name object.
+   * @private
+   */
+  protected _value: string;
 
-  constructor(value: string, type: ObjectType = ObjectType.DIRECT, id?: number, generation?: number) {
-    super(type, id, generation);
-    this._value = value;
+  static allNames: Map<string, NameObject> = new Map();
+
+  static getName(name: string): NameObject | undefined {
+    return NameObject.allNames.get(name);
   }
 
-  outputObject(): string {
-    return super.outputObject(`/${this.value}`);
+  /**
+   * Creates an instance of NameObject.
+   * @constructor
+   * @param {PDFDocument} pdf The PDF document to which the object belongs to
+   * @param {string} value The value of the name object.
+   * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
+   * @throws {Error} If the value is an empty string
+   */
+  constructor(pdf: PDFDocument, value: string, shouldBeIndirect = false) {
+    if (value === '') {
+      throw new Error('Name object cannot be empty');
+    }
+    super(pdf, shouldBeIndirect);
+    this._value = value.replace(' ', '');
+    NameObject.allNames.set(this._value, this);
   }
 
+  /**
+   * Returns a string representation of the object which is used to place it in the PDF file
+   * @returns {string} The string representation of the object
+   */
+  toString(): string {
+    return super.toString(`/${this.value}`);
+  }
+
+  /**
+   * Returns the value of the object
+   * @returns {string} The value of the object
+   */
   get value(): string {
     return this._value;
   }
 
+  /**
+   * Sets the value of the object
+   * @param {string} value The new value of the object
+   * @throws {Error} If the value is an empty string
+   */
   set value(value: string) {
-    this._value = value;
+    if (value === '') {
+      throw new Error('Name object cannot be empty');
+    }
+    this._value = value.replace(' ', '');
   }
 }
 

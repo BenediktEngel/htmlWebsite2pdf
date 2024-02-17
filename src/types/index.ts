@@ -1,2 +1,2 @@
-export * from './TOptionalValues';
-export * from './TrequieredValues';
+export * from './TOptionalValue';
+export * from './TRequieredValue';

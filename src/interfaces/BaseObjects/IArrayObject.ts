@@ -1,8 +1,10 @@
-import { IBaseObject } from 'interfaces';
-import { NullObject, StringObject, BooleanObject, DictionaryObject, NameObject, NumericObject } from 'objects';
+import { IBaseObject } from './IBaseObject';
+import { BaseObject } from '../../objects/BasicObjects';
 
 export interface IArrayObject extends IBaseObject {
-  value: Array<NullObject | StringObject | BooleanObject | DictionaryObject | NameObject | NumericObject>;
+  value: Array<BaseObject>;
 
-  outputObject(): string;
+  push(object: BaseObject): void;
+  pop(): BaseObject | undefined;
+  toString(): string;
 }

@@ -1,13 +1,11 @@
-import { ObjectType } from 'enums';
+import { PDFDocument } from '../../pdfDocument';
 
 export interface IBaseObject {
-  objectId: number | undefined;
+  id: number | undefined;
   generation: number | undefined;
-  type: ObjectType;
-  isFree: boolean;
-  byteOffset: number | undefined;
+  pdfDocument: PDFDocument;
 
-  outputObject(value: string): string;
-  getReference(): string | undefined;
-  ouputCrossReferenceData(): string | undefined;
+  toIndirect(generation?: number): void;
+  toString(value?: string): string;
+  getReference(): string;
 }
