@@ -1,11 +1,7 @@
-import PDFDocument from '../pdfDocument';
-import { NumericObject } from '../objects/BasicObjects';
+import type { PDFDocument } from '../pdfDocument';
+import { NumericObject } from '../objects/BasicObjects/NumericObject';
 import { CrossReferenceSection } from './CrossReferenceSection';
-
-export interface ICrossReferenceTable {
-  size: NumericObject;
-  sections: Array<CrossReferenceSection>;
-}
+import { ICrossReferenceTable } from '../interfaces';
 
 export class CrossReferenceTable implements ICrossReferenceTable {
   _size: NumericObject;
@@ -62,3 +58,5 @@ export class CrossReferenceTable implements ICrossReferenceTable {
     return this._size;
   }
 }
+
+export default CrossReferenceTable;

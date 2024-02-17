@@ -1,34 +1,21 @@
-import { PdfVersion } from './enums';
-import { CrossReferenceTable } from './sections';
-import {
-  ArrayObject,
-  BaseObject,
-  BooleanObject,
-  DictionaryObject,
-  IntegerObject,
-  NameObject,
-  NullObject,
-  NumericObject,
-  StreamObject,
-  StringObject,
-} from './objects/BasicObjects';
-import { CatalagDictionary, Page, PageTree, Rectangle } from './objects/IntermediateObjects';
 import { Blob } from 'node:buffer';
-
-export interface IPDFDocument {
-  version: PdfVersion;
-  crossReferenceTable: CrossReferenceTable;
-  catalog: CatalagDictionary | undefined;
-  root: PageTree | undefined;
-  trailer: DictionaryObject;
-  indirectObjects: Map<number, IndirectObject>;
-}
-
-export interface IndirectObject {
-  obj: BaseObject;
-  generation: number;
-  byteOffset?: number;
-}
+import { PdfVersion } from './enums';
+import { CrossReferenceTable } from './sections/CrossReferenceTable';
+import { BaseObject } from './objects/BasicObjects/BaseObject';
+import { NameObject } from './objects/BasicObjects/NameObject';
+import { ArrayObject } from './objects/BasicObjects/ArrayObject';
+import { BooleanObject } from './objects/BasicObjects/BooleanObject';
+import { DictionaryObject } from './objects/BasicObjects/DictionaryObject';
+import { IntegerObject } from './objects/BasicObjects/IntegerObject';
+import { NullObject } from './objects/BasicObjects/NullObject';
+import { NumericObject } from './objects/BasicObjects/NumericObject';
+import { StreamObject } from './objects/BasicObjects/StreamObject';
+import { StringObject } from './objects/BasicObjects/StringObject';
+import { CatalagDictionary } from './objects/IntermediateObjects/CatalogDictionary';
+import { Page } from './objects/IntermediateObjects/Page';
+import { PageTree } from './objects/IntermediateObjects/PageTree';
+import { Rectangle } from './objects/IntermediateObjects/Rectangle';
+import { IIndirectObject, IPDFDocument } from './interfaces';
 
 export class PDFDocument implements IPDFDocument {
   /**
@@ -40,9 +27,9 @@ export class PDFDocument implements IPDFDocument {
 
   /**
    * The list of all indirect objects.
-   * @type {Map<number, IndirectObject>}
+   * @type {Map<number, IIndirectObject>}
    */
-  readonly indirectObjects: Map<number, IndirectObject> = new Map();
+  readonly indirectObjects: Map<number, IIndirectObject> = new Map();
 
   /**
    * The cross reference table of the PDF document.
@@ -119,7 +106,7 @@ export class PDFDocument implements IPDFDocument {
   addPage(): void {
     if (!this.root) this.createRoot();
     const rootKids = this.root!.getValueByKey('Kids');
-    if (rootKids) {
+    if (rootKids && rootKids instanceof ArrayObject) {
       // if (rootKids && rootKids instanceof ArrayObject) {
       rootKids.push(
         new Page(
@@ -142,9 +129,8 @@ export class PDFDocument implements IPDFDocument {
       //  else {
       //   this.root.setValueByKey('Count', new NumericObject(this, 1));
       // }
-    }
-    else {
-      this.root.setValueByKey(
+    } else {
+      this.root?.setValueByKey(
         'Kids',
         new ArrayObject(this, [
           new Page(
@@ -162,7 +148,7 @@ export class PDFDocument implements IPDFDocument {
           ),
         ]),
       );
-      this.root.setValueByKey('Count', new NumericObject(this, 1));
+      this.root?.setValueByKey('Count', new NumericObject(this, 1));
     }
   }
 
@@ -188,7 +174,7 @@ export class PDFDocument implements IPDFDocument {
     return newObjectId;
   }
 
-  getIndirectObject(id: number): IndirectObject | undefined {
+  getIndirectObject(id: number): IIndirectObject | undefined {
     return this.indirectObjects.get(id);
   }
 

@@ -1,9 +1,9 @@
-import { PDFDocument } from '../../pdfDocument';
+import type { IPDFDocument } from '../IPDFDocument';
 
 export interface IBaseObject {
   id: number | undefined;
   generation: number | undefined;
-  pdfDocument: PDFDocument;
+  pdfDocument: IPDFDocument;
 
   toIndirect(generation?: number): void;
   toString(value?: string): string;

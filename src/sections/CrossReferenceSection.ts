@@ -1,23 +1,13 @@
-import {
-  ArrayObject,
-  BooleanObject,
-  DictionaryObject,
-  NameObject,
-  NullObject,
-  NumericObject,
-  StreamObject,
-  StringObject,
-} from '../objects/BasicObjects';
-import PDFDocument from '../pdfDocument';
-
-export interface ICrossReferenceSection {
-  firstId: number;
-  objectCount: number;
-  // TODO: Ignored type for now, cause it will probably get changed anyways
-  // entries: Array<ArrayObject | BooleanObject | DictionaryObject | NameObject | NullObject | NumericObject | StreamObject | StringObject>;
-
-  outputSection(): string;
-}
+import type { PDFDocument } from '../pdfDocument';
+import { NameObject } from '../objects/BasicObjects/NameObject';
+import { ArrayObject } from '../objects/BasicObjects/ArrayObject';
+import { BooleanObject } from '../objects/BasicObjects/BooleanObject';
+import { DictionaryObject } from '../objects/BasicObjects/DictionaryObject';
+import { NullObject } from '../objects/BasicObjects/NullObject';
+import { NumericObject } from '../objects/BasicObjects/NumericObject';
+import { StreamObject } from '../objects/BasicObjects/StreamObject';
+import { StringObject } from '../objects/BasicObjects/StringObject';
+import { ICrossReferenceSection } from '../interfaces';
 
 export class CrossReferenceSection implements ICrossReferenceSection {
   firstId: number;
@@ -63,3 +53,5 @@ export class CrossReferenceSection implements ICrossReferenceSection {
     }\r`;
   }
 }
+
+export default CrossReferenceSection;

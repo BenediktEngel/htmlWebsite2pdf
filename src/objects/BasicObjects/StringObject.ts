@@ -1,7 +1,7 @@
 import { StringType } from '../../enums';
 import { IStringObject } from '../../interfaces';
+import type { PDFDocument } from '../../pdfDocument';
 import { BaseObject } from './BaseObject';
-import { PDFDocument } from '../../pdfDocument';
 
 /**
  * StringObject class, used to represent a string object in a PDF document.

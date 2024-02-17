@@ -1,6 +1,6 @@
 import { IBooleanObject } from '../../interfaces';
 import { BaseObject } from './BaseObject';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
 
 /**
  * BooleanObject class, used to represent a boolean object in a PDF document.

@@ -1,18 +1,15 @@
 import { BaseObjects, PdfVersion, IntermediateObject } from '../../enums';
-import { IDocumentStructureDictionary } from '../../interfaces';
-import {
-  NameObject,
-  ArrayObject,
-  BooleanObject,
-  DictionaryObject,
-  IntegerObject,
-  NullObject,
-  NumericObject,
-  StreamObject,
-  StringObject,
-} from '../BasicObjects';
+import { NameObject } from '../BasicObjects/NameObject';
+import { ArrayObject } from '../BasicObjects/ArrayObject';
+import { BooleanObject } from '../BasicObjects/BooleanObject';
+import { DictionaryObject } from '../BasicObjects/DictionaryObject';
+import { IntegerObject } from '../BasicObjects/IntegerObject';
+import { NullObject } from '../BasicObjects/NullObject';
+import { NumericObject } from '../BasicObjects/NumericObject';
+import { StreamObject } from '../BasicObjects/StreamObject';
+import { StringObject } from '../BasicObjects/StringObject';
 import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
 import { TRequiredValue, TOptionalValue } from '../../types';
 
 /**
@@ -21,7 +18,7 @@ import { TRequiredValue, TOptionalValue } from '../../types';
  * @extends {DocumentStructureDictionary}
  * @implements {IDocumentStructureDictionary}
  */
-export class CatalagDictionary extends DocumentStructureDictionary implements IDocumentStructureDictionary {
+export class CatalagDictionary extends DocumentStructureDictionary {
   /**
    * The requiered values of the dictionary object.
    * @readonly

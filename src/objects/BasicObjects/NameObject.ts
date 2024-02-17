@@ -1,6 +1,6 @@
 import { INameObject } from '../../interfaces';
 import { BaseObject } from './BaseObject';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
 
 /**
  * NameObject class, used to represent a name object in a PDF document.

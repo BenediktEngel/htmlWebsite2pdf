@@ -1,4 +1,4 @@
-import { IBaseObject } from './IBaseObject';
+import type { IBaseObject } from './IBaseObject';
 
 export interface IBooleanObject extends IBaseObject {
   value: boolean;

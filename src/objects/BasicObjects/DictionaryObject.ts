@@ -1,6 +1,14 @@
 import { IDictionaryObject } from '../../interfaces';
-import { ArrayObject, BaseObject, BooleanObject, IntegerObject, NameObject, NullObject, NumericObject, StreamObject, StringObject } from './index';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
+import type { ArrayObject } from './ArrayObject';
+import { BaseObject } from './BaseObject';
+import { BooleanObject } from './BooleanObject';
+import { IntegerObject } from './IntegerObject';
+import { NameObject } from './NameObject';
+import { NullObject } from './NullObject';
+import { NumericObject } from './NumericObject';
+import { StreamObject } from './StreamObject';
+import { StringObject } from './StringObject';
 
 /**
  * DictionaryObject class, used to represent a PDF dictionary object.
@@ -82,7 +90,6 @@ export class DictionaryObject extends BaseObject implements IDictionaryObject {
     const name = NameObject.getName(key);
     if (name) {
       this._value.set(name, value);
-      return;
     } else {
       this._value.set(new NameObject(this.pdfDocument, key), value);
     }

@@ -1,6 +1,6 @@
 import { INumericObject } from '../../interfaces';
 import { BaseObject } from './BaseObject';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
 
 /**
  * NumericObject class, used to represent a numeric object in a PDF document.

@@ -1,10 +1,9 @@
-// import { IBaseObject } from './IBaseObject';
-import { IBaseObject } from 'index';
-import { DictionaryObject } from '../../objects/BasicObjects';
+import type { IBaseObject } from './IBaseObject';
+import type { IDictionaryObject } from './IDictionaryObject';
 
 export interface IStreamObject extends IBaseObject {
   value: string;
-  streamDictionary: DictionaryObject;
+  streamDictionary: IDictionaryObject;
 
   toString(): string;
 }

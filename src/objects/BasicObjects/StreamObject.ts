@@ -1,7 +1,7 @@
 import { IStreamObject } from '../../interfaces';
 import { BaseObject } from './BaseObject';
-import { DictionaryObject } from './DictionaryObject';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
+import type { DictionaryObject } from './DictionaryObject';
 
 /**
  * Class representing a stream object, used to represent a stream in a PDF document.
@@ -26,10 +26,10 @@ export class StreamObject extends BaseObject implements IStreamObject {
    * @constructor
    * @param {PDFDocument} pdf The PDF document to which the object belongs to
    * @param {string} value The value of the stream object.
-   * @param {DictionaryObject} [streamDictionary=new DictionaryObject()] The stream dictionary of the stream object.
+   * @param {DictionaryObject} [streamDictionary] The stream dictionary of the stream object. // TODO: this is not optional anymore
    * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
    */
-  constructor(pdf: PDFDocument, value: string, streamDictionary = new DictionaryObject(pdf, new Map()), shouldBeIndirect = false) {
+  constructor(pdf: PDFDocument, value: string, streamDictionary: DictionaryObject, shouldBeIndirect = false) {
     super(pdf, shouldBeIndirect);
     this._value = value;
     this.streamDictionary = streamDictionary;

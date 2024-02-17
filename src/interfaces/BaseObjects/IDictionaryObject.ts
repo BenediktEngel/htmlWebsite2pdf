@@ -1,24 +1,19 @@
-import { IBaseObject } from './IBaseObject';
-import {
-  NameObject,
-  BaseObject,
-  ArrayObject,
-  BooleanObject,
-  DictionaryObject,
-  IntegerObject,
-  NullObject,
-  NumericObject,
-  StreamObject,
-  StringObject,
-} from '../../objects/BasicObjects';
+import type { IBaseObject } from './IBaseObject';
+import type { INameObject } from './INameObject';
+import type { IArrayObject } from './IArrayObject';
+import type { IBooleanObject } from './IBooleanObject';
+import type { INullObject } from './INullObject';
+import type { INumericObject } from './INumericObject';
+import type { IStreamObject } from './IStreamObject';
+import type { IStringObject } from './IStringObject';
 
 export interface IDictionaryObject extends IBaseObject {
   value: Map<
-    NameObject,
-    ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject
+    INameObject,
+    IArrayObject | IBooleanObject | IDictionaryObject | INameObject | INullObject | INumericObject | IStreamObject | IStringObject
   >;
 
   toString(): string;
-  getValueByKey(key: NameObject | string): BaseObject | undefined;
-  setValueByKey(key: NameObject | string, value: BaseObject): void;
+  getValueByKey(key: INameObject | string): IBaseObject | undefined;
+  setValueByKey(key: INameObject | string, value: IBaseObject): void;
 }

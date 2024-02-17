@@ -1,10 +1,9 @@
-import { IBaseObject } from './IBaseObject';
-import { BaseObject } from '../../objects/BasicObjects';
+import type { IBaseObject } from './IBaseObject';
 
 export interface IArrayObject extends IBaseObject {
-  value: Array<BaseObject>;
+  value: Array<IBaseObject>;
 
-  push(object: BaseObject): void;
-  pop(): BaseObject | undefined;
+  push(object: IBaseObject): void;
+  pop(): IBaseObject | undefined;
   toString(): string;
 }

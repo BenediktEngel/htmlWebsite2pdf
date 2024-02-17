@@ -1,5 +1,6 @@
-import { ArrayObject, IntegerObject } from '../BasicObjects';
-import PDFDocument from '../../pdfDocument';
+import { ArrayObject } from '../BasicObjects/ArrayObject';
+import { IntegerObject } from '../BasicObjects/IntegerObject';
+import type { PDFDocument } from '../../pdfDocument';
 
 /**
  * Represents a rectangle in a PDF document. Mainly to create easy an array object with 4 integer objects.

@@ -1,5 +1,5 @@
-import { IArrayObject } from '../../interfaces';
-import { PDFDocument } from '../../pdfDocument';
+import type { IArrayObject } from '../../interfaces';
+import type { PDFDocument } from '../../pdfDocument';
 import { BaseObject } from './BaseObject';
 
 /**

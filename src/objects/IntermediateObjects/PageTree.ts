@@ -1,19 +1,16 @@
 import { BaseObjects, IntermediateObject } from '../../enums';
 import { IDocumentStructureDictionary } from '../../interfaces';
-import {
-  ArrayObject,
-  BaseObject,
-  BooleanObject,
-  DictionaryObject,
-  IntegerObject,
-  NameObject,
-  NullObject,
-  NumericObject,
-  StreamObject,
-  StringObject,
-} from '../BasicObjects';
+import type { PDFDocument } from '../../pdfDocument';
+import { NameObject } from '../BasicObjects/NameObject';
+import { ArrayObject } from '../BasicObjects/ArrayObject';
+import { BooleanObject } from '../BasicObjects/BooleanObject';
+import { DictionaryObject } from '../BasicObjects/DictionaryObject';
+import { IntegerObject } from '../BasicObjects/IntegerObject';
+import { NullObject } from '../BasicObjects/NullObject';
+import { NumericObject } from '../BasicObjects/NumericObject';
+import { StreamObject } from '../BasicObjects/StreamObject';
+import { StringObject } from '../BasicObjects/StringObject';
 import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
-import { PDFDocument } from '../../pdfDocument';
 import { TOptionalValue, TRequiredValue } from '../../types';
 
 /**

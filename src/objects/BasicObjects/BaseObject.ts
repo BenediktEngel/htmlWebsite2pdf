@@ -1,5 +1,5 @@
 import { IBaseObject } from '../../interfaces';
-import { PDFDocument } from '../../pdfDocument';
+import type { PDFDocument } from '../../pdfDocument';
 
 /**
  * Base class for all PDF objects
