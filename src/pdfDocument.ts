@@ -1,5 +1,6 @@
 import { Blob } from 'node:buffer';
 import { PdfVersion } from './enums';
+import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './sections/CrossReferenceTable';
 import { BaseObject } from './objects/BasicObjects/BaseObject';
 import { NameObject } from './objects/BasicObjects/NameObject';
@@ -55,27 +56,31 @@ export class PDFDocument implements IPDFDocument {
    */
   trailer: DictionaryObject = new DictionaryObject(this);
 
+  /**
+   * Create a new PDF document.
+   * @param {PdfVersion} [version=PdfVersion.V1_7] The version of the PDF document.
+   */
   constructor(version = PdfVersion.V1_7) {
     this.version = version;
     this.createCatalog();
     this.createRoot();
 
-    this.trailer.setValueByKey('Root', this.catalog!);
-    // this.trailer = new DictionaryObject(
-    //   [
-    //     { key: new NameObject('Size', ObjectType.DIRECT), value: this.crossReferenceTable.size },
-    //     { key: new NameObject('Root', ObjectType.DIRECT), value: this.body.root },
-    //   ],
-    //   ObjectType.DIRECT,
-    // );
-    // this.outputFileAsString();
+    this.trailer.setValueByKey('Root', this.catalog as DictionaryObject);
   }
 
-  outputHeader(): string {
+  /**
+   * Output the header of the PDF document as a string.
+   * @returns {string} The header of the PDF document.
+   */
+  private outputHeader(): string {
     return `%PDF-${this.version}\r%âãÏÒ\r`;
   }
 
-  outputBody(): string {
+  /**
+   * Output the body of the PDF document as a string.
+   * @returns {string} The body of the PDF document.
+   */
+  private outputBody(): string {
     let output = this.outputHeader();
     this.indirectObjects.forEach((indirectObject, id) => {
       const temp = indirectObject;
@@ -87,7 +92,11 @@ export class PDFDocument implements IPDFDocument {
     return output;
   }
 
-  createObjectId(): number {
+  /**
+   * Create a new object id which is not already in use.
+   * @returns {number} The new object id.
+   */
+  private createObjectId(): number {
     let id = 1;
     while (this.indirectObjects.has(id)) {
       id += 1;
@@ -95,77 +104,68 @@ export class PDFDocument implements IPDFDocument {
     return id;
   }
 
+  /**
+   * Output the complete PDF document as a string.
+   * @returns {string} The PDF document as a string.
+   */
   outputFileAsString(): string {
     const body = this.outputBody();
     let content = `${body}`;
     const bytesToStartxref = new Blob([content]).size;
-    content += `${this.crossRefernceTableAsString()}trailer\r${this.trailer.toString()}\rstartxref\r${bytesToStartxref}\r%%EOF`;
+    content += `${this.crossReferenceTableAsString()}trailer\r${this.trailer.toString()}\rstartxref\r${bytesToStartxref}\r%%EOF`;
     return content;
   }
 
-  addPage(): void {
+  /**
+   * Add a new page to the PDF document.
+   * @param {[number, number]} [pageDimensions=PageDimensions.A4] The dimensions of the new page, default is A4.
+   * @returns {void}
+   */
+  addPage(pageDimensions: [number, number] = PageDimensions.A4): void {
     if (!this.root) this.createRoot();
-    const rootKids = this.root!.getValueByKey('Kids');
+
+    const newPage = new Page(
+      this,
+      new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>([
+        [new NameObject(this, 'MediaBox'), new Rectangle(this, 0, 0, pageDimensions[0], pageDimensions[1])],
+        [new NameObject(this, 'Parent'), this.root as DictionaryObject],
+        [new NameObject(this, 'Type'), new NameObject(this, 'Page')],
+        [new NameObject(this, 'Resources'), new DictionaryObject(this)],
+      ]),
+      true,
+    );
+    const rootKids = this.root?.getValueByKey('Kids');
     if (rootKids && rootKids instanceof ArrayObject) {
-      // if (rootKids && rootKids instanceof ArrayObject) {
-      rootKids.push(
-        new Page(
-          this,
-          new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
-            [
-              [new NameObject(this, 'MediaBox'), new Rectangle(this, 0, 0, 612, 792)],
-              [new NameObject(this, 'Parent'), this.root as DictionaryObject],
-              [new NameObject(this, 'Type'), new NameObject(this, 'Page')],
-              [new NameObject(this, 'Resources'), new DictionaryObject(this)],
-            ],
-          ),
-          true,
-        ),
-      );
-      const count = this.root!.getValueByKey('Count');
-      if (count && count instanceof NumericObject) {
-        count.value += 1;
-      }
-      //  else {
-      //   this.root.setValueByKey('Count', new NumericObject(this, 1));
-      // }
+      rootKids.push(newPage);
     } else {
-      this.root?.setValueByKey(
-        'Kids',
-        new ArrayObject(this, [
-          new Page(
-            this,
-            new Map<
-              NameObject,
-              NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject
-            >([
-              [new NameObject(this, 'MediaBox'), new Rectangle(this, 0, 0, 612, 792)],
-              [new NameObject(this, 'Parent'), this.root as DictionaryObject],
-              [new NameObject(this, 'Type'), new NameObject(this, 'Page')],
-              [new NameObject(this, 'Resources'), new DictionaryObject(this)],
-            ]),
-            true,
-          ),
-        ]),
-      );
+      this.root?.setValueByKey('Kids', new ArrayObject(this, [newPage]));
+    }
+    const count = this.root?.getValueByKey('Count');
+    if (count && count instanceof NumericObject) {
+      count.value += 1;
+    } else {
       this.root?.setValueByKey('Count', new NumericObject(this, 1));
     }
   }
 
-  private crossRefernceTableAsString(): string {
+  /**
+   * Output the cross reference table as a string.
+   * @returns {string} The cross reference table as a string.
+   */
+  private crossReferenceTableAsString(): string {
     // Build the cross reference table
     this.indirectObjects.forEach((object, id) => {
       if (!object.byteOffset) throw new Error(`Byte offset for indirect object with id ${id} is not set! Couldn't build cross reference table.`);
-      this.crossReferenceTable.addEntry(id, object.byteOffset!, object.generation);
+      this.crossReferenceTable.addEntry(id, object.byteOffset, object.generation);
     });
     this.trailer.setValueByKey('Size', this.crossReferenceTable.size);
     return this.crossReferenceTable.outputTable();
   }
 
-  // New:
   /**
    * Add an object to the list of indirect objects.
-   * @param object {BaseObject} The object which should be indirect.
+   * @param {BaseObject} obj The object which should be indirect.
+   * @param {number} [generation=0] The generation of the object.
    * @returns {number} The id of the indirect object.
    */
   addIndirectObject(obj: BaseObject, generation = 0): number {
@@ -174,10 +174,20 @@ export class PDFDocument implements IPDFDocument {
     return newObjectId;
   }
 
+  /**
+   * Get an indirect object by its id.
+   * @param id {number} The id of the indirect object.
+   * @returns {IIndirectObject | undefined} The indirect object with the given id or undefined if no such object exists.
+   */
   getIndirectObject(id: number): IIndirectObject | undefined {
     return this.indirectObjects.get(id);
   }
 
+  /**
+   * Create the catalog of the PDF document.
+   * @returns {void}
+   * @throws {Error} If the catalog already exists.
+   */
   createCatalog(): void {
     if (this.catalog) {
       throw new Error('Catalog already exists');
@@ -186,13 +196,18 @@ export class PDFDocument implements IPDFDocument {
       this,
       new Map([
         [new NameObject(this, 'Type'), new NameObject(this, 'Catalog')],
-        // [new NameObject(this, 'Version'), new NameObject(this, this.version)],
+        [new NameObject(this, 'Version'), new NameObject(this, this.version)],
         // TODO: Maybe add more values based on Options
       ]),
       true,
     );
   }
 
+  /**
+   * Create the root object of the PDF document.
+   * @returns {void}
+   * @throws {Error} If the root object already exists.
+   */
   createRoot(): void {
     if (this.root) {
       throw new Error('Root already exists');
@@ -212,8 +227,7 @@ export class PDFDocument implements IPDFDocument {
     if (!this.catalog) {
       this.createCatalog();
     }
-    this.catalog!.setValueByKey('Pages', this.root);
-    // [new NameObject(this, 'Pages'), new Pages(new Map(), ObjectType.INDIRECT, this.createObjectId())],
+    this.catalog?.setValueByKey('Pages', this.root);
   }
 }
 
