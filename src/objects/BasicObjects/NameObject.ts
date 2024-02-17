@@ -34,7 +34,7 @@ export class NameObject extends BaseObject implements INameObject {
       throw new Error('Name object cannot be empty');
     }
     super(pdf, shouldBeIndirect);
-    this._value = value.replace(' ', '');
+    this._value = value.replace(' ', '#20');
     NameObject.allNames.set(this._value, this);
   }
 
