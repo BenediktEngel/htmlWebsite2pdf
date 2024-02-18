@@ -6,6 +6,10 @@ import { IIndirectObject } from './IIndirectObject';
 
 export interface IPDFDocument {
   version: PdfVersion;
+  title: string;
+  subject: string;
+  keywords: string;
+  author: string;
   crossReferenceTable: ICrossReferenceTable;
   catalog: IDocumentStructureDictionary | undefined;
   root: IDocumentStructureDictionary | undefined;

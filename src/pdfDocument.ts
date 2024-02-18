@@ -17,6 +17,8 @@ import { Page } from './objects/IntermediateObjects/Page';
 import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
+import { TDocumentOptions } from './types';
+import { dateToASN1 } from './utils';
 
 export class PDFDocument implements IPDFDocument {
   /**
@@ -25,6 +27,30 @@ export class PDFDocument implements IPDFDocument {
    * @type {PdfVersion}
    */
   readonly version: PdfVersion;
+
+  /**
+   * The title of the PDF document.
+   * @type {string}
+   */
+  title: string;
+
+  /**
+   * The subject of the PDF document.
+   * @type {string}
+   */
+  subject: string;
+
+  /**
+   * The keywords of the PDF document.
+   * @type {string}
+   */
+  keywords: string;
+
+  /**
+   * The author of the PDF document.
+   * @type {string}
+   */
+  author: string;
 
   /**
    * The list of all indirect objects.
@@ -57,15 +83,27 @@ export class PDFDocument implements IPDFDocument {
   trailer: DictionaryObject = new DictionaryObject(this);
 
   /**
-   * Create a new PDF document.
-   * @param {PdfVersion} [version=PdfVersion.V1_7] The version of the PDF document.
+   * The Info Dictionary of the PDF document.
+   * @type {DictionaryObject}
    */
-  constructor(version = PdfVersion.V1_7) {
-    this.version = version;
+  info: DictionaryObject = new DictionaryObject(this, new Map(), true);
+
+  /**
+   * Create a new PDF document.
+   * @param {TDocumentOptions} [options= { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }] The options for the PDF document.
+   */
+  constructor(options: TDocumentOptions = { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }) {
+    if (!options.version) console.log('No version, using 1.7');
+    this.version = options.version || PdfVersion.V1_7;
+    this.title = options.title || '';
+    this.subject = options.subject || '';
+    this.keywords = options.keywords || '';
+    this.author = options.author || '';
     this.createCatalog();
     this.createRoot();
-
+    this.createInfo();
     this.trailer.setValueByKey('Root', this.catalog as DictionaryObject);
+    this.trailer.setValueByKey('Info', this.info);
   }
 
   /**
@@ -201,6 +239,22 @@ export class PDFDocument implements IPDFDocument {
       ]),
       true,
     );
+  }
+
+  /**
+   * Create the info dictionary of the PDF document.
+   * @returns {void}
+   */
+  createInfo(): void {
+    this.info.setValueByKey('Title', new StringObject(this, this.title));
+    this.info.setValueByKey('Subject', new StringObject(this, this.subject));
+    this.info.setValueByKey('Keywords', new StringObject(this, this.keywords));
+    this.info.setValueByKey('Author', new StringObject(this, this.author));
+    this.info.setValueByKey('Creator', new StringObject(this, 'htmlWebsite2pdf'));
+    this.info.setValueByKey('Producer', new StringObject(this, 'htmlWebsite2pdf'));
+    const date = dateToASN1(new Date());
+    this.info.setValueByKey('CreationDate', new StringObject(this, `D:${date}`));
+    this.info.setValueByKey('ModDate', new StringObject(this, `D:${date}`));
   }
 
   /**
