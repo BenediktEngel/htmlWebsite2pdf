@@ -15,7 +15,7 @@ export class StreamObject extends BaseObject implements IStreamObject {
    * The value of the stream object.
    * @private
    */
-  protected _value: string;
+  protected _value: string | Buffer;
 
   /**
    * The stream dictionary of the stream object.
@@ -27,15 +27,13 @@ export class StreamObject extends BaseObject implements IStreamObject {
    * @constructor
    * @param {PDFDocument} pdf The PDF document to which the object belongs to
    * @param {string} value The value of the stream object.
-   * @param {DictionaryObject} [streamDictionary] The stream dictionary of the stream object. // TODO: this is not optional anymore
+   * @param {DictionaryObject} [streamDictionary] The stream dictionary of the stream object.
    * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
    */
-  constructor(pdf: PDFDocument, value: string, streamDictionary: DictionaryObject, shouldBeIndirect = false) {
+  constructor(pdf: PDFDocument, value: string | Buffer, streamDictionary: DictionaryObject, shouldBeIndirect = false) {
     super(pdf, shouldBeIndirect);
     this._value = value;
     this.streamDictionary = streamDictionary;
-    // TODO: Probably call method to calculate length of stream
-    // TODO: And set this value in the stream dictionary
   }
 
   /**

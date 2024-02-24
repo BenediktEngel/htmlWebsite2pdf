@@ -1,3 +1,4 @@
+import * as fontkit from 'fontkit';
 import { PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './sections/CrossReferenceTable';
@@ -17,7 +18,9 @@ import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
 import { TDocumentOptions } from './types';
-import { dateToASN1 } from './utils';
+import { dateToASN1, toHex } from './utils';
+import * as fontHelper from './Font';
+import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
 
 export class PDFDocument implements IPDFDocument {
   /**
@@ -88,6 +91,13 @@ export class PDFDocument implements IPDFDocument {
   info: DictionaryObject = new DictionaryObject(this, new Map(), true);
 
   /**
+   * The Map of all fontNames which are included to the PDF document, which chars are used and the font itself.
+   * @type {Map<string, {FontDictionary, Set<string>, Buffer, any}>}
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  includedFonts: Map<string, { fontDictionary: FontDictionary; usedChars: Set<string>; file: Buffer; fontObj: any }> = new Map();
+
+  /**
    * Create a new PDF document.
    * @param {TDocumentOptions} [options= { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }] The options for the PDF document.
    */
@@ -146,6 +156,13 @@ export class PDFDocument implements IPDFDocument {
    * @returns {Buffer} The PDF document as a buffer.
    */
   outputFileAsBuffer(): Buffer {
+    this.includedFonts.forEach((font, name) => {
+      if (font.usedChars.size === 0) {
+        this.indirectObjects.delete(font.fontDictionary.id!);
+      } else {
+        fontHelper.addFontToDocument(this, font);
+      }
+    });
     const body = this.outputBody();
     const bytesToStartxref = body.byteLength;
     return Buffer.concat([
@@ -282,6 +299,99 @@ export class PDFDocument implements IPDFDocument {
       this.createCatalog();
     }
     this.catalog?.setValueByKey('Pages', this.root);
+  }
+
+  addFont(font: Buffer, fontName: string): void {
+    const fontDictionary = new FontDictionary(this, new Map(), true);
+    const fontObj = fontkit.create(font);
+    this.includedFonts.set(fontName, { fontDictionary, usedChars: new Set(), file: font, fontObj });
+  }
+  
+  addTextToCurrentPage(text: string, fontName: string, fontSize: number, x: number, y: number): void {
+    const font = this.includedFonts.get(fontName);
+    if (!font) {
+      throw new Error(`Font with name ${fontName} not found`);
+    }
+    const fontId = font.fontDictionary.id;
+    if (!fontId) {
+      throw new Error(`Font with name ${fontName} has no id`);
+    }
+    // Add used chars to object in includedFonts
+    text.split('').forEach((char) => {
+      font.usedChars.add(char);
+    });
+    this.includedFonts.set(fontName, font);
+    // get current (last) PageObject
+    const rootKids = this.root?.getValueByKey('Kids');
+    if (!rootKids || !(rootKids instanceof ArrayObject)) {
+      throw new Error('No pages in root or root is not a PageTree');
+    }
+    const currentPage = rootKids.getAt(rootKids.length - 1);
+    if (!currentPage || !(currentPage instanceof Page)) {
+      throw new Error("Current page doesn't exist or is not a Page");
+    }
+    // If resources dont include the font add it
+    const currentPageResources = currentPage.getValueByKey('Resources');
+    if (!currentPageResources) {
+      // We have no resources, create a new one
+      currentPage.setValueByKey(
+        'Resources',
+        new DictionaryObject(
+          this,
+          new Map([
+            [
+              new NameObject(this, 'Font'),
+              new DictionaryObject(
+                this,
+                new Map<
+                  NameObject,
+                  NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject
+                >([[new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]]),
+              ),
+            ],
+          ]),
+        ),
+      );
+    }
+    if (!(currentPageResources instanceof DictionaryObject)) {
+      throw new Error('Resources is not a DictionaryObject');
+    }
+    const fontResource = currentPageResources.getValueByKey('Font');
+    if (!fontResource) {
+      // We dont have a font resource, create a new one
+      currentPageResources.setValueByKey(
+        'Font',
+        new DictionaryObject(
+          this,
+          new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
+            [[new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]],
+          ),
+        ),
+      );
+    } else if (fontResource instanceof DictionaryObject) {
+      fontResource.setValueByKey(new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject);
+    }
+
+    // Create hex representation of text
+    let hexString = '';
+    font.fontObj.layout(text).glyphs.forEach((glyph: any) => {
+      hexString += toHex(glyph.id);
+    });
+    // create the textstream
+    const textContent = new StreamObject(
+      this,
+      `1. 0. 0. 1. ${x} ${y} cm\nBT /${fontName} ${fontSize} Tf <${hexString}> Tj ET`,
+      new DictionaryObject(this),
+      true,
+    );
+
+    // Add content to contents
+    const currentPageContents = currentPage.getValueByKey('Contents');
+    if (!currentPageContents) {
+      currentPage.setValueByKey('Contents', new ArrayObject(this, [textContent], true));
+    } else if (currentPageContents instanceof ArrayObject) {
+      currentPageContents.push(textContent);
+    }
   }
 }
 
