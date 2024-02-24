@@ -301,12 +301,25 @@ export class PDFDocument implements IPDFDocument {
     this.catalog?.setValueByKey('Pages', this.root);
   }
 
+  /**
+   * Add a font to the PDF document. The font will be embedded in the document if it is used, otherwise it will be removed.
+   * @param {Buffer} font The font as a buffer.
+   * @param {string} fontName A string which will be used to reference the font when adding text.
+   */
   addFont(font: Buffer, fontName: string): void {
     const fontDictionary = new FontDictionary(this, new Map(), true);
     const fontObj = fontkit.create(font);
     this.includedFonts.set(fontName, { fontDictionary, usedChars: new Set(), file: font, fontObj });
   }
-  
+
+  /**
+   * Add text to the current page of the PDF document.
+   * @param {string} text The text to add
+   * @param {string} fontName The name of the font to use, must be added before with addFont
+   * @param {string} fontSize The size of the font
+   * @param {number} x The x position of the text (0 is the lower left corner of the page)
+   * @param {number} y The y position of the text (0 is the lower left corner of the page)
+   */
   addTextToCurrentPage(text: string, fontName: string, fontSize: number, x: number, y: number): void {
     const font = this.includedFonts.get(fontName);
     if (!font) {
