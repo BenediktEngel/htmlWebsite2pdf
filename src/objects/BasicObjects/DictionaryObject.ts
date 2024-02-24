@@ -46,16 +46,20 @@ export class DictionaryObject extends BaseObject implements IDictionaryObject {
   }
 
   /**
-   * Returns a string representation of the object which is used to place it in the PDF file
-   * @returns {string} The string representation of the object
+   * Returns a buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The buffer representation of the object
    */
-  toString(): string {
-    let value = '<< ';
+  toBuffer(): Buffer {
+    const values = [Buffer.from('<<')];
     this.value.forEach((val, key) => {
-      value += `${key.isIndirect() ? key.getReference() : key.toString()} ${val.isIndirect() ? val.getReference() : val.toString()} `;
+      values.push(
+        Buffer.from(key.isIndirect() ? key.getReference() : key.toBuffer()),
+        Buffer.from(' '),
+        Buffer.from(val.isIndirect() ? val.getReference() : val.toBuffer()),
+        Buffer.from(' '),
+      );
     });
-    value += '>>';
-    return super.toString(value);
+    return super.toBuffer(Buffer.concat([...values, Buffer.from('>>')]));
   }
 
   /**

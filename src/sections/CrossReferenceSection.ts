@@ -26,7 +26,7 @@ export class CrossReferenceSection implements ICrossReferenceSection {
   }
 
   outputSection(): string {
-    let section = `${this.firstId} ${this.objectCount}\r`;
+    let section = `${this.firstId} ${this.objectCount}\r\n`;
     this.entries.forEach((entry) => {
       section += `${this.ouputCrossReferenceData(entry)}`;
     });
@@ -50,7 +50,7 @@ export class CrossReferenceSection implements ICrossReferenceSection {
     const byteOffsetLength = entry.byteOffset.toString().length;
     return `${'0'.repeat(10 - byteOffsetLength)}${entry.byteOffset} ${'0'.repeat(5 - generationLength)}${entry.generation} ${
       entry.inUse ? 'n' : 'f'
-    }\r`;
+    }\r\n`;
   }
 }
 

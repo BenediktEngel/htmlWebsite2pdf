@@ -28,17 +28,16 @@ export class ArrayObject extends BaseObject implements IArrayObject {
   }
 
   /**
-   * Returns a string representation of the object which is used to place it in the PDF file
-   * @returns {string} The string representation of the object
+   * Returns a buffer representation of the object which is used to place it in the PDF file
+   * @returns {buffer} The buffer representation of the object
    */
-  toString(): string {
-    let value = '[';
+  toBuffer(): Buffer {
+    const values = [Buffer.from('[')];
     this._value.forEach((object) => {
-      value += `${object.isIndirect() ? object.getReference() : object.toString()} `;
+      values.push(object.isIndirect() ? Buffer.from(object.getReference()) : object.toBuffer(), Buffer.from(' '));
     });
-    value = value.trimEnd();
-    value += ']';
-    return super.toString(value);
+    values.push(Buffer.from(']'));
+    return super.toBuffer(Buffer.concat(values));
   }
 
   /**
@@ -72,6 +71,35 @@ export class ArrayObject extends BaseObject implements IArrayObject {
    */
   pop(): BaseObject | undefined {
     return this._value.pop();
+  }
+
+  /**
+   * Get the length of the array
+   * @returns {number} the length of the array
+   */
+  get length(): number {
+    return this._value.length;
+  }
+
+  /**
+   * Get the object at a specific index
+   * @param {number} index The index of the object
+   * @returns {BaseObject | undefined} The object at the index or undefined if the index is out of range
+   */
+  getAt(index: number): BaseObject | undefined {
+    return this._value[index];
+  }
+
+  /**
+   * Set the object at a specific index
+   * @param {number} index The index of the object
+   * @param {BaseObject} object The object to set at the index
+   */
+  setAt(index: number, object: BaseObject): void {
+    if (index > this._value.length) {
+      throw new Error('Index out of range');
+    }
+    this._value[index] = object;
   }
 }
 

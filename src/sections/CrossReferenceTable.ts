@@ -20,7 +20,7 @@ export class CrossReferenceTable implements ICrossReferenceTable {
   }
 
   outputTable(): string {
-    let table = 'xref\r';
+    let table = 'xref\r\n';
     this._sections.forEach((section) => {
       table += `${section.outputSection()}`;
     });

@@ -1,4 +1,3 @@
-import { Blob } from 'node:buffer';
 import { PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './sections/CrossReferenceTable';
@@ -93,7 +92,7 @@ export class PDFDocument implements IPDFDocument {
    * @param {TDocumentOptions} [options= { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }] The options for the PDF document.
    */
   constructor(options: TDocumentOptions = { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }) {
-    if (!options.version) console.log('No version, using 1.7');
+    if (!options.version) console.warn('No version, using 1.7');
     this.version = options.version || PdfVersion.V1_7;
     this.title = options.title || '';
     this.subject = options.subject || '';
@@ -111,23 +110,23 @@ export class PDFDocument implements IPDFDocument {
    * @returns {string} The header of the PDF document.
    */
   private outputHeader(): string {
-    return `%PDF-${this.version}\r%âãÏÒ\r`;
+    return `%PDF-${this.version}\r\n%âãÏÒ\r\n`;
   }
 
   /**
-   * Output the body of the PDF document as a string.
-   * @returns {string} The body of the PDF document.
+   * Output the body of the PDF document as a buffer.
+   * @returns {Buffer} The body of the PDF document.
    */
-  private outputBody(): string {
-    let output = this.outputHeader();
+  private outputBody(): Buffer {
+    let outputBuffer = Buffer.from(this.outputHeader());
     this.indirectObjects.forEach((indirectObject, id) => {
       const temp = indirectObject;
-      const objectOutput = indirectObject.obj.toString();
-      temp.byteOffset = new Blob([output]).size;
+      const objectOutput = indirectObject.obj.toBuffer();
+      temp.byteOffset = outputBuffer.byteLength;
       this.indirectObjects.set(id, temp);
-      output += `${objectOutput}\r`;
+      outputBuffer = Buffer.concat([outputBuffer, objectOutput, Buffer.from('\r\n')]);
     });
-    return output;
+    return outputBuffer;
   }
 
   /**
@@ -143,15 +142,16 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Output the complete PDF document as a string.
-   * @returns {string} The PDF document as a string.
+   * Output the complete PDF document as a buffer.
+   * @returns {Buffer} The PDF document as a buffer.
    */
-  outputFileAsString(): string {
+  outputFileAsBuffer(): Buffer {
     const body = this.outputBody();
-    let content = `${body}`;
-    const bytesToStartxref = new Blob([content]).size;
-    content += `${this.crossReferenceTableAsString()}trailer\r${this.trailer.toString()}\rstartxref\r${bytesToStartxref}\r%%EOF`;
-    return content;
+    const bytesToStartxref = body.byteLength;
+    return Buffer.concat([
+      body,
+      Buffer.from(`${this.crossReferenceTableAsString()}trailer\r\n${this.trailer.toBuffer()}\r\nstartxref\r\n${bytesToStartxref}\r\n%%EOF`),
+    ]);
   }
 
   /**

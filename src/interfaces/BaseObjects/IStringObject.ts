@@ -5,5 +5,5 @@ export interface IStringObject extends IBaseObject {
   value: string;
   stringType: StringType;
 
-  toString(): string;
+  toBuffer(): Buffer;
 }

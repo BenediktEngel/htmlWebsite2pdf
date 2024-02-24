@@ -5,5 +5,5 @@ export interface IArrayObject extends IBaseObject {
 
   push(object: IBaseObject): void;
   pop(): IBaseObject | undefined;
-  toString(): string;
+  toBuffer(): Buffer;
 }

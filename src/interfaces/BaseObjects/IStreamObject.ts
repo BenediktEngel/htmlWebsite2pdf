@@ -5,5 +5,5 @@ export interface IStreamObject extends IBaseObject {
   value: string;
   streamDictionary: IDictionaryObject;
 
-  toString(): string;
+  toBuffer(): Buffer;
 }

@@ -62,15 +62,16 @@ export abstract class BaseObject implements IBaseObject {
   }
 
   /**
-   * Returns a string representation of the object which is used to place it in the PDF file
-   * @param {string} value - The value of the subclass
-   * @returns {string} The string representation of the object
+   * Returns a buffer representation of the object which is used to place it in the PDF file
+   * @param {Buffer} value - The value of the subclass
+   * @returns {Buffer} The buffer representation of the object
    */
-  toString(value?: string): string {
+  toBuffer(value?: Buffer): Buffer {
+    const bufferValue = Buffer.from(value !== undefined ? value : '');
     if (this.isIndirect()) {
-      return `${this.id} ${this.generation} obj\r${value}\rendobj`;
+      return Buffer.concat([Buffer.from(`${this.id} ${this.generation} obj\r\n`), bufferValue, Buffer.from(`\r\nendobj\r\n`)]);
     }
-    return value || '';
+    return bufferValue;
   }
 
   /**

@@ -2,6 +2,7 @@ import { IStreamObject } from '../../interfaces';
 import { BaseObject } from './BaseObject';
 import type { PDFDocument } from '../../pdfDocument';
 import type { DictionaryObject } from './DictionaryObject';
+import { IntegerObject } from './IntegerObject';
 
 /**
  * Class representing a stream object, used to represent a stream in a PDF document.
@@ -38,14 +39,20 @@ export class StreamObject extends BaseObject implements IStreamObject {
   }
 
   /**
-   * Returns a string representation of the object which is used to place it in the PDF file
-   * @returns {string} The string representation of the object
+   * Returns a buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The buffer representation of the object
    */
-  toString(): string {
-    return super.toString(
-      `${this.streamDictionary.isIndirect() ? this.streamDictionary.getReference() : this.streamDictionary.toString()}\rstream\r${
-        this._value
-      }\rendstream`,
+  toBuffer(): Buffer {
+    const streamBuffer = Buffer.from(this._value);
+    const streamSize = streamBuffer.byteLength;
+    this.streamDictionary.setValueByKey('Length', new IntegerObject(this.pdfDocument, streamSize));
+    return super.toBuffer(
+      Buffer.concat([
+        this.streamDictionary.isIndirect() ? Buffer.from(this.streamDictionary.getReference()) : this.streamDictionary.toBuffer(),
+        Buffer.from('\r\nstream\r\n'),
+        streamBuffer,
+        Buffer.from('\r\nendstream'),
+      ]),
     );
   }
 

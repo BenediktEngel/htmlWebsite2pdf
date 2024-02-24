@@ -37,11 +37,11 @@ export class StringObject extends BaseObject implements IStringObject {
   }
 
   /**
-   * Returns a string representation of the object which is used to place it in the PDF file
-   * @returns {string} The string representation of the object
+   * Returns a buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The buffer representation of the object
    */
-  toString(): string {
-    return super.toString(this.stringType === StringType.HEXADECIMAL ? `<${this.value}>` : `(${this.value})`);
+  toBuffer(): Buffer {
+    return super.toBuffer(Buffer.from(this.stringType === StringType.HEXADECIMAL ? `<${this.value}>` : `(${this.value})`));
   }
 
   /**

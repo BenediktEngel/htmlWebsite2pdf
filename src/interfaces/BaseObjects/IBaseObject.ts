@@ -6,6 +6,6 @@ export interface IBaseObject {
   pdfDocument: IPDFDocument;
 
   toIndirect(generation?: number): void;
-  toString(value?: string): string;
+  toBuffer(): Buffer;
   getReference(): string;
 }

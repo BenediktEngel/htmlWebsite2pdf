@@ -13,7 +13,7 @@ export interface IDictionaryObject extends IBaseObject {
     IArrayObject | IBooleanObject | IDictionaryObject | INameObject | INullObject | INumericObject | IStreamObject | IStringObject
   >;
 
-  toString(): string;
+  toBuffer(): Buffer;
   getValueByKey(key: INameObject | string): IBaseObject | undefined;
   setValueByKey(key: INameObject | string, value: IBaseObject): void;
 }

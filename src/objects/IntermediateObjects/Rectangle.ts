@@ -1,6 +1,6 @@
 import { ArrayObject } from '../BasicObjects/ArrayObject';
-import { IntegerObject } from '../BasicObjects/IntegerObject';
 import type { PDFDocument } from '../../pdfDocument';
+import { NumericObject } from '../BasicObjects/NumericObject';
 
 /**
  * Represents a rectangle in a PDF document. Mainly to create easy an array object with 4 integer objects.
@@ -20,10 +20,10 @@ export class Rectangle extends ArrayObject {
    */
   constructor(pdf: PDFDocument, lowerLeftX: number, lowerLeftY: number, upperLeftX: number, upperLeftY: number, shouldBeIndirect = false) {
     const value = [
-      new IntegerObject(pdf, lowerLeftX),
-      new IntegerObject(pdf, lowerLeftY),
-      new IntegerObject(pdf, upperLeftX),
-      new IntegerObject(pdf, upperLeftY),
+      new NumericObject(pdf, lowerLeftX),
+      new NumericObject(pdf, lowerLeftY),
+      new NumericObject(pdf, upperLeftX),
+      new NumericObject(pdf, upperLeftY),
     ];
     super(pdf, value, shouldBeIndirect);
   }
