@@ -17,7 +17,7 @@ import { Page } from './objects/IntermediateObjects/Page';
 import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
-import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition } from './types';
+import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark } from './types';
 import { dateToASN1, toHex } from './utils';
 import * as fontHelper from './Font';
 import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
@@ -97,6 +97,8 @@ export class PDFDocument implements IPDFDocument {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   includedFonts: Map<string, { fontDictionary: FontDictionary; usedChars: Set<string>; file: Buffer; fontObj: any }> = new Map();
 
+  bookmarkStructure: Array<TBookmark> = [];
+
   /**
    * Create a new PDF document.
    * @param {TDocumentOptions} [options= { version: PdfVersion.V1_7, title: '', subject: '', keywords: '', author: '' }] The options for the PDF document.
@@ -156,6 +158,7 @@ export class PDFDocument implements IPDFDocument {
    * @returns {Buffer} The PDF document as a Buffer.
    */
   outputFileAsBuffer(): Buffer {
+    this.createDocumentOutline();
     this.includedFonts.forEach((font, name) => {
       if (font.usedChars.size === 0) {
         this.indirectObjects.delete(font.fontDictionary.id!);
@@ -507,7 +510,86 @@ export class PDFDocument implements IPDFDocument {
       ),
     );
   }
- 
+
+  /**
+   * Add a bookmark to the PDF document. Bookmarks are used to create the document outline in the PDF reader.
+   * @param {string} title - The title of the bookmark. This will be displayed in the document outline.
+   * @param {Page} page - The page to link the bookmark to.
+   * @param {Array<number>} [position=[]] - The position of the bookmark in the document outline. Each value in the  position-array representates the position in a List. Example: [2,3], this would create a Subsubchapter in the 3. subchapter of the 2. chapter (so 2.3.1).  If no position is provided, the bookmark will be added to the end of the root of the document outline.
+   */
+  addBookmark(title: string, page: Page, position: Array<number> = []): void {
+    const bookmark: TBookmark = {
+      title,
+      pageObjectId: page.id!,
+      children: [],
+    };
+    if (!position.length) {
+      this.bookmarkStructure.push(bookmark);
+    } else {
+      let currentBookmark = this.bookmarkStructure;
+      position.forEach((index) => {
+        if (!currentBookmark[index - 1]) {
+          throw new Error('Position is out of range');
+        }
+        currentBookmark = currentBookmark[index - 1].children;
+      });
+      currentBookmark.push(bookmark);
+    }
+  }
+
+  private createDocumentOutline(): void {
+    if (!this.bookmarkStructure.length) return;
+    const outline = new DictionaryObject(this, new Map(), true);
+    this.bookmarkStructure.forEach((bookmark) => {
+      this.createOutlineItem(this, bookmark, outline);
+    });
+    outline.setValueByKey('First', this.indirectObjects.get(this.bookmarkStructure[0].objectId!)?.obj as DictionaryObject);
+    outline.setValueByKey(
+      'Last',
+      this.indirectObjects.get(this.bookmarkStructure[this.bookmarkStructure.length - 1].objectId!)?.obj as DictionaryObject,
+    );
+    if (this.bookmarkStructure.length > 1) {
+      this.bookmarkStructure.forEach((bookmark, index) => {
+        if (index > 0) {
+          const obj = this.indirectObjects.get(bookmark.objectId!)?.obj as DictionaryObject;
+          const prevObj = this.indirectObjects.get(this.bookmarkStructure[index - 1].objectId!)?.obj as DictionaryObject;
+          // Set Prev to the current object
+          obj.setValueByKey('Prev', prevObj);
+          // Set Next to the previous object
+          prevObj.setValueByKey('Next', obj);
+        }
+      });
+    }
+    this.catalog?.setValueByKey('Outlines', outline);
+  }
+
+  private createOutlineItem(pdf: PDFDocument, bookmark: TBookmark, parent: DictionaryObject): void {
+    const outlineItem = new DictionaryObject(pdf, new Map(), true);
+    bookmark.objectId = outlineItem.id;
+    outlineItem.setValueByKey('Title', new StringObject(pdf, bookmark.title));
+    outlineItem.setValueByKey('Parent', parent);
+    outlineItem.setValueByKey(
+      'Dest',
+      // TODO: Add support for other zooms instead of /fit, maybe change to: /XYZ null y-pos null
+      new ArrayObject(pdf, [this.indirectObjects.get(bookmark.pageObjectId!)?.obj as Page, NameObject.getName(pdf, 'Fit')]),
+    );
+    if (bookmark.children.length) {
+      bookmark.children.forEach((child, index) => {
+        this.createOutlineItem(pdf, child, outlineItem);
+        if (index > 0) {
+          // Set Prev to the current object
+          const obj = this.indirectObjects.get(child.objectId!)?.obj as DictionaryObject;
+          const prevObj = this.indirectObjects.get(bookmark.children[index - 1].objectId!)?.obj as DictionaryObject;
+          obj.setValueByKey('Prev', prevObj);
+          // Set Next to the previous object
+          prevObj.setValueByKey('Next', obj);
+        }
+      });
+      outlineItem.setValueByKey('First', this.indirectObjects.get(bookmark.children[0].objectId!)?.obj as DictionaryObject);
+      outlineItem.setValueByKey('Last', this.indirectObjects.get(bookmark.children[bookmark.children.length - 1].objectId!)?.obj as DictionaryObject);
+    }
+  }
+
   /**
    * Get the current page of the PDF document.
    * @returns {Page} The current page of the PDF document.

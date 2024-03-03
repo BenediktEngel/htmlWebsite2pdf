@@ -5,3 +5,4 @@ export * from './colors';
 export * from './TLineOptions';
 export * from './TRectangleOptions';
 export * from './TPosition';
+export * from './TBookmark';
