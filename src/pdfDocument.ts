@@ -17,7 +17,7 @@ import { Page } from './objects/IntermediateObjects/Page';
 import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
-import { TDocumentOptions } from './types';
+import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition } from './types';
 import { dateToASN1, toHex } from './utils';
 import * as fontHelper from './Font';
 import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
@@ -437,6 +437,77 @@ export class PDFDocument implements IPDFDocument {
     }
   }
 
+   /**
+   * Draw a rectangle to the current page of the PDF document.
+   * @param {TPosition} pos - The lower left corner of the rectangle in pt.
+   * @param {number} width - The width of the rectangle in pt.
+   * @param {number} height - The height of the rectangle in pt.
+   * @param {TRectangleOptions} [options={}] - Additional options for the rectangle, like the fill-color, stroke-color and stroke-width. If no options are provided, the rectangle will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @returns {void}
+   */
+   drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions = {}): void {
+    const fillColor = options.fillColor || { r: 0, g: 0, b: 0 };
+    const strokeColor = options.strokeColor || { r: 0, g: 0, b: 0 };
+    const strokeWidth = options.strokeWidth || 0;
+    const currentPage = this.getCurrentPage();
+    const currentPageContents = this.getPageContents(currentPage);
+    currentPageContents.push(
+      new StreamObject(
+        this,
+        `${strokeWidth} w q ${strokeColor.r} ${strokeColor.g} ${strokeColor.b} RG ${fillColor.r} ${fillColor.g} ${fillColor.b} rg ${pos.x} ${
+          pos.y
+        } ${width} ${height} re ${options.strokeColor ? 'B' : 'f'} Q`,
+        new DictionaryObject(this),
+        true,
+      ),
+    );
+  }
+
+  /**
+   * Draw a straight line to the current page of the PDF document.
+   * @overload
+   * @param {TPosition} start - The start position of the line in pt.
+   * @param {TPosition} end - The end position of the line in pt.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
+   * @returns {void}
+   * @overload
+   * @param {TPosition} start - The start position of the line in pt.
+   * @param {TPosition} end - The end position of the line in pt.
+   * @param {TLineOptions} [options={}] - Additional options for the line, like the stroke-color and stroke-width. If no options are provided, the line will be drawn with a black color and a width of 1pt.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
+   * @returns {void}
+   * @overload
+   * @param {TPosition} start - The start position of the line in pt.
+   * @param {TPosition} end - The end position of the line in pt.
+   * @param {TLineOptions} [options={}] - Additional options for the line, like the stroke-color and stroke-width. If no options are provided, the line will be drawn with a black color and a width of 1pt.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
+   */
+  drawLineToCurrentPage(start: TPosition, end: TPosition, page?: number): void;
+  drawLineToCurrentPage(start: TPosition, end: TPosition, options?: TLineOptions, page?: number): void;
+  drawLineToCurrentPage(start: TPosition, end: TPosition, pageOrOptions?: TLineOptions | number, page?: number): void {
+    let pageId;
+    let options;
+    if (typeof pageOrOptions === 'number' || pageOrOptions === undefined) {
+      pageId = pageOrOptions;
+      options = {};
+    } else {
+      options = pageOrOptions;
+      pageId = page;
+    }
+    const strokeColor = options.strokeColor || { r: 0, g: 0, b: 0 };
+    const strokeWidth = options.strokeWidth || 1;
+    const currentPage = this.getPageAt(pageId);
+    const currentPageContents = this.getPageContents(currentPage);
+    currentPageContents.push(
+      new StreamObject(
+        this,
+        `${strokeWidth} w q ${strokeColor.r} ${strokeColor.g} ${strokeColor.b} RG ${start.x} ${start.y} m ${end.x} ${end.y} l S Q`,
+        new DictionaryObject(this),
+        true,
+      ),
+    );
+  }
+ 
   /**
    * Get the current page of the PDF document.
    * @returns {Page} The current page of the PDF document.
