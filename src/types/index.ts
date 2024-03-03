@@ -6,3 +6,4 @@ export * from './TLineOptions';
 export * from './TRectangleOptions';
 export * from './TPosition';
 export * from './TBookmark';
+export * from './TLinkOptions';

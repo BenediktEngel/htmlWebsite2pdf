@@ -17,8 +17,8 @@ import { Page } from './objects/IntermediateObjects/Page';
 import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
-import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark } from './types';
-import { dateToASN1, toHex } from './utils';
+import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark, TLinkOptions } from './types';
+import { RGB, dateToASN1, toHex } from './utils';
 import * as fontHelper from './Font';
 import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
 
@@ -311,8 +311,8 @@ export class PDFDocument implements IPDFDocument {
    */
   addFont(font: Buffer, fontName: string): void {
     const fontDictionary = new FontDictionary(this, new Map(), true);
-    const fontObj = fontkit.create(font);
-    this.includedFonts.set(fontName, { fontDictionary, usedChars: new Set(), file: font, fontObj });
+    const fontObj = fontkit.create(Buffer.from(font));
+    this.includedFonts.set(fontName, { fontDictionary, usedChars: new Set(), file: Buffer.from(font), fontObj });
   }
 
   /**
@@ -440,7 +440,7 @@ export class PDFDocument implements IPDFDocument {
     }
   }
 
-   /**
+  /**
    * Draw a rectangle to the current page of the PDF document.
    * @param {TPosition} pos - The lower left corner of the rectangle in pt.
    * @param {number} width - The width of the rectangle in pt.
@@ -448,7 +448,7 @@ export class PDFDocument implements IPDFDocument {
    * @param {TRectangleOptions} [options={}] - Additional options for the rectangle, like the fill-color, stroke-color and stroke-width. If no options are provided, the rectangle will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
    * @returns {void}
    */
-   drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions = {}): void {
+  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions = {}): void {
     const fillColor = options.fillColor || { r: 0, g: 0, b: 0 };
     const strokeColor = options.strokeColor || { r: 0, g: 0, b: 0 };
     const strokeWidth = options.strokeWidth || 0;
@@ -591,6 +591,104 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
+   * Add a link to the the PDF document.
+   * @param {TPosition} pos - The position of the link in pt.
+   * @param {number} width - The width of the link in pt.
+   * @param {number} height - The height of the link in pt. 
+   * @param {Page} page - The page on which the link should be added.
+   * @param {DictionaryObject | ArrayObject} dest - The destination of the link. This can be a DictionaryObject or an ArrayObject. If it is a DictionaryObject, it will be used as the 'A' value of the link. If it is an ArrayObject, it will be used as the 'Dest' value of the link.
+   * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
+   */
+  private addLink(pos: TPosition, width: number, height: number, page: Page, dest: DictionaryObject | ArrayObject, options: TLinkOptions): void {
+    const link = new DictionaryObject(
+      this,
+      new Map<NameObject, NameObject | ArrayObject>([
+        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Annot')],
+        [NameObject.getName(this, 'Subtype'), NameObject.getName(this, 'Link')],
+        [
+          NameObject.getName(this, 'Rect'),
+          new ArrayObject(this, [
+            new NumericObject(this, pos.x),
+            new NumericObject(this, pos.y),
+            new NumericObject(this, pos.x + width),
+            new NumericObject(this, pos.y + height),
+          ]),
+        ],
+        [NameObject.getName(this, 'H'), NameObject.getName(this, 'N')],
+      ]),
+      true,
+    );
+    if (options && options.border) {
+      let colorInFormat = RGB.changeRange1(options.border.color);
+      link.setValueByKey(
+        'C',
+        new ArrayObject(this, [
+          new NumericObject(this, colorInFormat.r),
+          new NumericObject(this, colorInFormat.g),
+          new NumericObject(this, colorInFormat.b),
+        ]),
+      );
+      link.setValueByKey(
+        'Border',
+        new ArrayObject(this, [
+          new NumericObject(this, options.border.cornerRadius || 0),
+          new NumericObject(this, options.border.cornerRadius || 0),
+          new NumericObject(this, options.border.width || 0),
+        ]),
+      );
+    }
+    if (dest instanceof DictionaryObject) {
+      link.setValueByKey('A', dest);
+    } else {
+      link.setValueByKey('Dest', dest);
+    }
+    let pageAnnots = this.getPageAnnots(page);
+    pageAnnots.push(link);
+  }
+
+  /**
+   * Add an internal link to the PDF document.
+   * @param {TPosition} pos - The position of the link in pt.
+   * @param {number} width - The width of the link in pt.
+   * @param {number} height - The height of the link in pt. 
+   * @param {Page} page - The page on which the link should be added.
+   * @param {Page} dest - The destination of the link.
+   * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
+   */
+  addInternalLink(pos: TPosition, width: number, height: number, page: Page, dest: Page, options: TLinkOptions) {
+    // TODO: Destination can also be a postion on a page, so maybe change that
+    // TODO: Add support for other zooms instead of /fit, maybe change to: /XYZ null y-pos null
+    this.addLink(pos, width, height, page, new ArrayObject(this, [dest, NameObject.getName(this, 'Fit')]), options);
+  }
+
+  /**
+   * Add an external link to the PDF document.
+   * @param {TPosition} pos - The position of the link in pt.
+   * @param {number} width - The width of the link in pt.
+   * @param {number} height - The height of the link in pt. 
+   * @param {Page} page - The page on which the link should be added.
+   * @param {string} dest - The destination of the link.
+   * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
+   */
+  addExternalLink(pos: TPosition, width: number, height: number, page: Page, dest: string, options: TLinkOptions) {
+    this.addLink(
+      pos,
+      width,
+      height,
+      page,
+      new DictionaryObject(
+        this,
+        new Map<NameObject, NameObject | StringObject>([
+          [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Action')],
+          [NameObject.getName(this, 'S'), NameObject.getName(this, 'URI')],
+          [NameObject.getName(this, 'URI'), new StringObject(this, dest)],
+        ]),
+      ),
+      options,
+    );
+  }
+
+  /**
    * Get the current page of the PDF document.
    * @returns {Page} The current page of the PDF document.
    * @throws {Error} If the current page doesn't exist or is not a Page.
@@ -653,6 +751,24 @@ export class PDFDocument implements IPDFDocument {
       throw new Error('No contents in page or contents is not a ArrayObject');
     }
     return contents;
+  }
+
+  /**
+   * Get the annotations of a page.
+   * @param {Page} page The page to get the annotations from.
+   * @returns {ArrayObject} The annotations of the page, if they don't exist, they will be created as an empty array.
+   * @throws {Error} If the page annotations are not a ArrayObject.
+   */
+  private getPageAnnots(page: Page): ArrayObject {
+    const annots = page.getValueByKey('Annots');
+    if (!annots) {
+      page.setValueByKey('Annots', new ArrayObject(this, [], true));
+      return page.getValueByKey('Annots') as ArrayObject;
+    }
+    if (!(annots instanceof ArrayObject)) {
+      throw new Error('No contents in page or contents is not a ArrayObject');
+    }
+    return annots;
   }
 }
 
