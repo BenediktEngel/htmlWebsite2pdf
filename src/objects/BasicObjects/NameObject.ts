@@ -17,19 +17,21 @@ export class NameObject extends BaseObject implements INameObject {
 
   static allNames: Map<string, NameObject> = new Map();
 
-  static getName(name: string): NameObject | undefined {
-    return NameObject.allNames.get(name);
+  static getName(pdf: PDFDocument, name: string): NameObject {
+    const found = NameObject.allNames.get(name);
+    return found || new NameObject(pdf, name);
   }
 
   /**
-   * Creates an instance of NameObject.
+   * Creates an instance of NameObject. Use the static method `getName` to create a new instance of NameObject, as it will check if the name already exists.
    * @constructor
+   * @private
    * @param {PDFDocument} pdf The PDF document to which the object belongs to
    * @param {string} value The value of the name object.
    * @param {boolean} [shouldBeIndirect=false] Whether the object should be indirect or not. Defaults to false.
    * @throws {Error} If the value is an empty string
    */
-  constructor(pdf: PDFDocument, value: string, shouldBeIndirect = false) {
+  private constructor(pdf: PDFDocument, value: string, shouldBeIndirect = false) {
     if (value === '') {
       throw new Error('Name object cannot be empty');
     }
@@ -52,18 +54,6 @@ export class NameObject extends BaseObject implements INameObject {
    */
   get value(): string {
     return this._value;
-  }
-
-  /**
-   * Sets the value of the object
-   * @param {string} value The new value of the object
-   * @throws {Error} If the value is an empty string
-   */
-  set value(value: string) {
-    if (value === '') {
-      throw new Error('Name object cannot be empty');
-    }
-    this._value = value.replace(' ', '');
   }
 }
 

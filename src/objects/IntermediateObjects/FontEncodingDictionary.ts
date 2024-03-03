@@ -50,7 +50,7 @@ export class FontEncodingDictionary extends DocumentStructureDictionary implemen
     > = new Map(),
     shouldBeIndirect = false,
   ) {
-    value.set(new NameObject(pdf, 'Type'), new NameObject(pdf, 'Encoding'));
+    value.set(NameObject.getName(pdf, 'Type'), NameObject.getName(pdf, 'Encoding'));
     super(pdf, value, shouldBeIndirect);
   }
 }

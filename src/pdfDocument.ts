@@ -124,7 +124,7 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Output the body of the PDF document as a buffer.
+   * Output the body of the PDF document as a Buffer.
    * @returns {Buffer} The body of the PDF document.
    */
   private outputBody(): Buffer {
@@ -152,8 +152,8 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Output the complete PDF document as a buffer.
-   * @returns {Buffer} The PDF document as a buffer.
+   * Output the complete PDF document as a Buffer.
+   * @returns {Buffer} The PDF document as a Buffer.
    */
   outputFileAsBuffer(): Buffer {
     this.includedFonts.forEach((font, name) => {
@@ -182,10 +182,10 @@ export class PDFDocument implements IPDFDocument {
     const newPage = new Page(
       this,
       new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>([
-        [new NameObject(this, 'MediaBox'), new Rectangle(this, 0, 0, pageDimensions[0], pageDimensions[1])],
-        [new NameObject(this, 'Parent'), this.root as DictionaryObject],
-        [new NameObject(this, 'Type'), new NameObject(this, 'Page')],
-        [new NameObject(this, 'Resources'), new DictionaryObject(this)],
+        [NameObject.getName(this, 'MediaBox'), new Rectangle(this, 0, 0, pageDimensions[0], pageDimensions[1])],
+        [NameObject.getName(this, 'Parent'), this.root as DictionaryObject],
+        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Page')],
+        [NameObject.getName(this, 'Resources'), new DictionaryObject(this)],
       ]),
       true,
     );
@@ -250,8 +250,8 @@ export class PDFDocument implements IPDFDocument {
     this.catalog = new CatalagDictionary(
       this,
       new Map([
-        [new NameObject(this, 'Type'), new NameObject(this, 'Catalog')],
-        [new NameObject(this, 'Version'), new NameObject(this, this.version)],
+        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Catalog')],
+        [NameObject.getName(this, 'Version'), NameObject.getName(this, this.version)],
         // TODO: Maybe add more values based on Options
       ]),
       true,
@@ -289,9 +289,9 @@ export class PDFDocument implements IPDFDocument {
         NameObject,
         ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject
       >([
-        [new NameObject(this, 'Type'), new NameObject(this, 'Pages')],
-        [new NameObject(this, 'Kids'), new ArrayObject(this)],
-        [new NameObject(this, 'Count'), new NumericObject(this, 0)],
+        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Pages')],
+        [NameObject.getName(this, 'Kids'), new ArrayObject(this)],
+        [NameObject.getName(this, 'Count'), new NumericObject(this, 0)],
       ]),
       true,
     );
@@ -303,7 +303,7 @@ export class PDFDocument implements IPDFDocument {
 
   /**
    * Add a font to the PDF document. The font will be embedded in the document if it is used, otherwise it will be removed.
-   * @param {Buffer} font The font as a buffer.
+   * @param {Buffer} font The font as a Buffer.
    * @param {string} fontName A string which will be used to reference the font when adding text.
    */
   addFont(font: Buffer, fontName: string): void {
@@ -335,40 +335,9 @@ export class PDFDocument implements IPDFDocument {
     });
     this.includedFonts.set(fontName, font);
     // get current (last) PageObject
-    const rootKids = this.root?.getValueByKey('Kids');
-    if (!rootKids || !(rootKids instanceof ArrayObject)) {
-      throw new Error('No pages in root or root is not a PageTree');
-    }
-    const currentPage = rootKids.getAt(rootKids.length - 1);
-    if (!currentPage || !(currentPage instanceof Page)) {
-      throw new Error("Current page doesn't exist or is not a Page");
-    }
+    const currentPage = this.getCurrentPage();
     // If resources dont include the font add it
-    const currentPageResources = currentPage.getValueByKey('Resources');
-    if (!currentPageResources) {
-      // We have no resources, create a new one
-      currentPage.setValueByKey(
-        'Resources',
-        new DictionaryObject(
-          this,
-          new Map([
-            [
-              new NameObject(this, 'Font'),
-              new DictionaryObject(
-                this,
-                new Map<
-                  NameObject,
-                  NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject
-                >([[new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]]),
-              ),
-            ],
-          ]),
-        ),
-      );
-    }
-    if (!(currentPageResources instanceof DictionaryObject)) {
-      throw new Error('Resources is not a DictionaryObject');
-    }
+    const currentPageResources = this.getPageRessources(currentPage);
     const fontResource = currentPageResources.getValueByKey('Font');
     if (!fontResource) {
       // We dont have a font resource, create a new one
@@ -377,12 +346,12 @@ export class PDFDocument implements IPDFDocument {
         new DictionaryObject(
           this,
           new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
-            [[new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]],
+            [[NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]],
           ),
         ),
       );
     } else if (fontResource instanceof DictionaryObject) {
-      fontResource.setValueByKey(new NameObject(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject);
+      fontResource.setValueByKey(NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject);
     }
 
     // Create hex representation of text
@@ -405,6 +374,71 @@ export class PDFDocument implements IPDFDocument {
     } else if (currentPageContents instanceof ArrayObject) {
       currentPageContents.push(textContent);
     }
+  }
+
+  /**
+   * Get the current page of the PDF document.
+   * @returns {Page} The current page of the PDF document.
+   * @throws {Error} If the current page doesn't exist or is not a Page.
+   * @throws {Error} If the root object doesn't exist or is not a PageTree.
+   */
+  private getCurrentPage(): Page {
+    return this.getPageAt();
+  }
+
+  /**
+   * Get a page of the PDF document by its index.
+   * @param {number | undefined} index The index of the page, starting at 0, if no index is provided, the current (last) page will be returned.
+   * @returns {Page} The page of the PDF document.
+   * @throws {Error} If the page doesn't exist or is not a Page.
+   * @throws {Error} If the root object doesn't exist or is not a PageTree.
+   */
+  getPageAt(index: number | undefined = undefined): Page {
+    const rootKids = this.root?.getValueByKey('Kids');
+    if (!rootKids || !(rootKids instanceof ArrayObject)) {
+      throw new Error('No pages in root or root is not a PageTree');
+    }
+    const page = rootKids.getAt(index === undefined ? rootKids.length - 1 : index);
+    if (!page || !(page instanceof Page)) {
+      throw new Error("Current page doesn't exist or is not a Page");
+    }
+    return page;
+  }
+
+  /**
+   * Get the resource-dictionary of a page.
+   * @param {Page} page The page to get the resources from.
+   * @returns {DictionaryObject} The resources of the page, if they don't exist, they will be created as an empty dictionary.
+   * @throws {Error} If the page resources are not a DictionaryObject.
+   */
+  private getPageRessources(page: Page): DictionaryObject {
+    const resources = page.getValueByKey('Resources');
+    if (!resources) {
+      page.setValueByKey('Resources', new DictionaryObject(this, new Map(), true));
+      return page.getValueByKey('Resources') as DictionaryObject;
+    }
+    if (!(resources instanceof DictionaryObject)) {
+      throw new Error('No resources in page or resources is not a DictionaryObject');
+    }
+    return resources;
+  }
+
+  /**
+   * Get the contents of a page.
+   * @param {Page} page The page to get the contents from.
+   * @returns {ArrayObject} The contents of the page, if they don't exist, they will be created as an empty array.
+   * @throws {Error} If the page contents are not a ArrayObject.
+   */
+  private getPageContents(page: Page): ArrayObject {
+    const contents = page.getValueByKey('Contents');
+    if (!contents) {
+      page.setValueByKey('Contents', new ArrayObject(this, [], true));
+      return page.getValueByKey('Contents') as ArrayObject;
+    }
+    if (!(contents instanceof ArrayObject)) {
+      throw new Error('No contents in page or contents is not a ArrayObject');
+    }
+    return contents;
   }
 }
 

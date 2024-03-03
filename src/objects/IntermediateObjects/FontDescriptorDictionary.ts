@@ -70,7 +70,7 @@ export class FontDescriptorDictionary extends DocumentStructureDictionary implem
     > = new Map(),
     shouldBeIndirect = false,
   ) {
-    value.set(new NameObject(pdf, 'Type'), new NameObject(pdf, 'FontDescriptor'));
+    value.set(NameObject.getName(pdf, 'Type'), NameObject.getName(pdf, 'FontDescriptor'));
     super(pdf, value, shouldBeIndirect);
   }
 }

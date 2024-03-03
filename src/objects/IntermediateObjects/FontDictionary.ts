@@ -60,7 +60,7 @@ export class FontDictionary extends DocumentStructureDictionary implements IDocu
     > = new Map(),
     shouldBeIndirect = false,
   ) {
-    value.set(new NameObject(pdf, 'Type'), new NameObject(pdf, 'Font'));
+    value.set(NameObject.getName(pdf, 'Type'), NameObject.getName(pdf, 'Font'));
     super(pdf, value, shouldBeIndirect);
   }
 }

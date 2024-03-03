@@ -49,17 +49,17 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
 
   // Create a font dictionary for the descendant font
   const descendantFont = new FontDictionary(pdf, new Map(), true);
-  descendantFont.setValueByKey('Subtype', new NameObject(pdf, 'CIDFontType2'));
-  descendantFont.setValueByKey('BaseFont', new NameObject(pdf, font.fontObj.postscriptName));
-  descendantFont.setValueByKey('CIDToGIDMap', new NameObject(pdf, 'Identity'));
+  descendantFont.setValueByKey('Subtype', NameObject.getName(pdf, 'CIDFontType2'));
+  descendantFont.setValueByKey('BaseFont', NameObject.getName(pdf, font.fontObj.postscriptName));
+  descendantFont.setValueByKey('CIDToGIDMap', NameObject.getName(pdf, 'Identity'));
   descendantFont.setValueByKey(
     'CIDSystemInfo',
     new DictionaryObject(
       pdf,
       new Map<NameObject, NumericObject | StringObject>([
-        [new NameObject(pdf, 'Registry'), new StringObject(pdf, 'Adobe')],
-        [new NameObject(pdf, 'Ordering'), new StringObject(pdf, 'Identity')],
-        [new NameObject(pdf, 'Supplement'), new NumericObject(pdf, 0)],
+        [NameObject.getName(pdf, 'Registry'), new StringObject(pdf, 'Adobe')],
+        [NameObject.getName(pdf, 'Ordering'), new StringObject(pdf, 'Identity')],
+        [NameObject.getName(pdf, 'Supplement'), new NumericObject(pdf, 0)],
       ]),
     ),
   );
@@ -67,8 +67,8 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
 
   // Create a font descriptor
   const fontDescriptor = new FontDescriptorDictionary(pdf, new Map(), true);
-  fontDescriptor.setValueByKey('Type', new NameObject(pdf, 'FontDescriptor'));
-  fontDescriptor.setValueByKey('FontName', new NameObject(pdf, font.fontObj.postscriptName));
+  fontDescriptor.setValueByKey('Type', NameObject.getName(pdf, 'FontDescriptor'));
+  fontDescriptor.setValueByKey('FontName', NameObject.getName(pdf, font.fontObj.postscriptName));
   fontDescriptor.setValueByKey('Flags', new IntegerObject(pdf, fontFlagsAsInt([FontFlagTypes.Symbolic, FontFlagTypes.Italic]))); // TODO get pdf values from font
   fontDescriptor.setValueByKey(
     'FontBBox',
@@ -94,9 +94,9 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
   descendantFont.setValueByKey('FontDescriptor', fontDescriptor);
 
   // Add all necessary objects to the font dictionary
-  font.fontDictionary.setValueByKey('Subtype', new NameObject(pdf, 'Type0'));
-  font.fontDictionary.setValueByKey('BaseFont', new NameObject(pdf, font.fontObj.postscriptName));
-  font.fontDictionary.setValueByKey('Encoding', new NameObject(pdf, 'Identity-H'));
+  font.fontDictionary.setValueByKey('Subtype', NameObject.getName(pdf, 'Type0'));
+  font.fontDictionary.setValueByKey('BaseFont', NameObject.getName(pdf, font.fontObj.postscriptName));
+  font.fontDictionary.setValueByKey('Encoding', NameObject.getName(pdf, 'Identity-H'));
   font.fontDictionary.setValueByKey('DescendantFonts', new ArrayObject(pdf, [descendantFont], true));
 
   // Create the cmap for the toUnicode entry

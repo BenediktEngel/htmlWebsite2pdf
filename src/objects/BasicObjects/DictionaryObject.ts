@@ -71,11 +71,8 @@ export class DictionaryObject extends BaseObject implements IDictionaryObject {
     if (key instanceof NameObject) {
       return this._value.get(key);
     }
-    const name = NameObject.getName(key);
+    const name = NameObject.getName(this.pdfDocument, key);
     return name ? this._value.get(name) : undefined;
-
-    // const name = key instanceof NameObject ? key : NameObject.getName(key);
-    // return this._value.get(name);
   }
 
   /**
@@ -91,11 +88,11 @@ export class DictionaryObject extends BaseObject implements IDictionaryObject {
       this._value.set(key, value);
       return;
     }
-    const name = NameObject.getName(key);
+    const name = NameObject.getName(this.pdfDocument, key);
     if (name) {
       this._value.set(name, value);
     } else {
-      this._value.set(new NameObject(this.pdfDocument, key), value);
+      this._value.set(NameObject.getName(this.pdfDocument, key), value);
     }
   }
 
