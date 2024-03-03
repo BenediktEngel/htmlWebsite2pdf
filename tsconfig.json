@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2016",
-    "module": "CommonJS",
+    "module": "umd",
     "baseUrl": "./",
     "paths": {
       "*": ["./src/*"]
@@ -11,7 +11,11 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": ["ES2016", "DOM"],
+    "sourceMap": true,
+    "types": ["node"],
+    "moduleResolution": "node"
   },
   "include": ["src"],
   "exclude": ["node_modules", "lib"]
