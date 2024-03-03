@@ -1,4 +1,4 @@
-import FontFlagTypes from 'enums/FontFlagTypes';
+import { FontFlagTypes } from 'enums/FontFlagTypes';
 
 /**
  * Convert an array of FontFlagTypes to the byte value
