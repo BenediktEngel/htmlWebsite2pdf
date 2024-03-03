@@ -1,5 +1,5 @@
 import * as fontkit from 'fontkit';
-import { PdfVersion } from './enums';
+import { ImageFormats, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './sections/CrossReferenceTable';
 import { BaseObject } from './objects/BasicObjects/BaseObject';
@@ -360,12 +360,7 @@ export class PDFDocument implements IPDFDocument {
       hexString += toHex(glyph.id);
     });
     // create the textstream
-    const textContent = new StreamObject(
-      this,
-      `1. 0. 0. 1. ${x} ${y} cm\nBT /${fontName} ${fontSize} Tf <${hexString}> Tj ET`,
-      new DictionaryObject(this),
-      true,
-    );
+    const textContent = new StreamObject(this, `BT /${fontName} ${fontSize} Tf ${x} ${y} Td <${hexString}> Tj ET`, new DictionaryObject(this), true);
 
     // Add content to contents
     const currentPageContents = currentPage.getValueByKey('Contents');
@@ -373,6 +368,72 @@ export class PDFDocument implements IPDFDocument {
       currentPage.setValueByKey('Contents', new ArrayObject(this, [textContent], true));
     } else if (currentPageContents instanceof ArrayObject) {
       currentPageContents.push(textContent);
+    }
+  }
+
+  addImageToCurrentPage(
+    image: Buffer,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    embedWidth: number,
+    embedHeight: number,
+    format: ImageFormats,
+    imageName: string,
+  ): void {
+    const currentPage = this.getCurrentPage();
+    let imageStream;
+    if (format === ImageFormats.JPEG) {
+      imageStream = new StreamObject(
+        this,
+        image,
+        new DictionaryObject(
+          this,
+          new Map<NameObject, NameObject | NumericObject>([
+            [NameObject.getName(this, 'Type'), NameObject.getName(this, 'XObject')],
+            [NameObject.getName(this, 'Subtype'), NameObject.getName(this, 'Image')],
+            [NameObject.getName(this, 'Width'), new NumericObject(this, width)],
+            [NameObject.getName(this, 'Height'), new NumericObject(this, height)],
+            [NameObject.getName(this, 'ColorSpace'), NameObject.getName(this, 'DeviceRGB')],
+            [NameObject.getName(this, 'BitsPerComponent'), new NumericObject(this, 8)],
+            [NameObject.getName(this, 'Filter'), NameObject.getName(this, 'DCTDecode')],
+          ]),
+        ),
+        true,
+      );
+    } else {
+      throw new Error('Image format is currently not supported');
+    }
+    const currentPageResources = this.getPageRessources(currentPage);
+    const imageResource = currentPageResources.getValueByKey('XObject');
+    if (!imageResource) {
+      // We dont have a font resource, create a new one
+      currentPageResources.setValueByKey(
+        'XObject',
+        new DictionaryObject(
+          this,
+          new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
+            [[NameObject.getName(this, imageName), imageStream]],
+          ),
+        ),
+      );
+    } else if (imageResource instanceof DictionaryObject) {
+      imageResource.setValueByKey(NameObject.getName(this, imageName), imageStream);
+    }
+
+    const imageContent = new StreamObject(
+      this,
+      `q ${embedWidth} 0 0 ${embedHeight} ${x} ${y} cm /${imageName} Do Q`,
+      new DictionaryObject(this),
+      true,
+    );
+
+    const currentPageContents = currentPage.getValueByKey('Contents');
+    if (!currentPageContents) {
+      currentPage.setValueByKey('Contents', new ArrayObject(this, [imageContent as StreamObject], true));
+    } else if (currentPageContents instanceof ArrayObject) {
+      currentPageContents.push(imageContent as StreamObject);
     }
   }
 
