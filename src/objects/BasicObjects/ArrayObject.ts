@@ -28,8 +28,8 @@ export class ArrayObject extends BaseObject implements IArrayObject {
   }
 
   /**
-   * Returns a buffer representation of the object which is used to place it in the PDF file
-   * @returns {buffer} The buffer representation of the object
+   * Returns a Buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The Buffer representation of the object
    */
   toBuffer(): Buffer {
     const values = [Buffer.from('[')];

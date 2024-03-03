@@ -28,8 +28,8 @@ export class BooleanObject extends BaseObject implements IBooleanObject {
   }
 
   /**
-   * Returns a buffer representation of the object which is used to place it in the PDF file
-   * @returns {Buffer} The buffer representation of the object
+   * Returns a Buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The Buffer representation of the object
    */
   toBuffer(): Buffer {
     return super.toBuffer(Buffer.from(`${this._value}`));

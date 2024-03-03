@@ -37,8 +37,8 @@ export class StreamObject extends BaseObject implements IStreamObject {
   }
 
   /**
-   * Returns a buffer representation of the object which is used to place it in the PDF file
-   * @returns {Buffer} The buffer representation of the object
+   * Returns a Buffer representation of the object which is used to place it in the PDF file
+   * @returns {Buffer} The Buffer representation of the object
    */
   toBuffer(): Buffer {
     const streamBuffer = Buffer.from(this._value);
@@ -56,17 +56,17 @@ export class StreamObject extends BaseObject implements IStreamObject {
 
   /**
    * Returns the value of the stream object
-   * @returns {string} The value of the stream object
+   * @returns {string | Buffer} The value of the stream object
    */
-  get value(): string {
+  get value(): string | Buffer {
     return this._value;
   }
 
   /**
    * Sets the value of the stream object
-   * @param {string} value The new value of the stream object
+   * @param {string | Buffer} value The new value of the stream object
    */
-  set value(value: string) {
+  set value(value: string | Buffer) {
     this._value = value;
   }
 }
