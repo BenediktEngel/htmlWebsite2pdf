@@ -3,6 +3,8 @@ import { BaseObject } from './BaseObject';
 import type { PDFDocument } from '../../pdfDocument';
 import type { DictionaryObject } from './DictionaryObject';
 import { IntegerObject } from './IntegerObject';
+import { NameObject } from './NameObject';
+import zlib from 'zlib';
 
 /**
  * Class representing a stream object, used to represent a stream in a PDF document.
@@ -41,7 +43,11 @@ export class StreamObject extends BaseObject implements IStreamObject {
    * @returns {Buffer} The Buffer representation of the object
    */
   toBuffer(): Buffer {
-    const streamBuffer = Buffer.from(this._value);
+    let streamBuffer = Buffer.from(this._value);
+    if (!this.streamDictionary.getValueByKey('Filter')) {
+      streamBuffer = zlib.deflateSync(streamBuffer);
+      this.streamDictionary.setValueByKey('Filter', NameObject.getName(this.pdfDocument, 'FlateDecode'));
+    }
     const streamSize = streamBuffer.byteLength;
     this.streamDictionary.setValueByKey('Length', new IntegerObject(this.pdfDocument, streamSize));
     return super.toBuffer(
