@@ -1,5 +1,5 @@
 import * as fontkit from 'fontkit';
-import { ImageFormats, PdfVersion } from './enums';
+import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './sections/CrossReferenceTable';
 import { BaseObject } from './objects/BasicObjects/BaseObject';
@@ -113,6 +113,15 @@ export class PDFDocument implements IPDFDocument {
     this.createCatalog();
     this.createRoot();
     this.createInfo();
+    if (options.pageLayout && options.pageLayout !== PdfPageLayout.SINGLE_PAGE)
+      this.catalog?.setValueByKey('PageLayout', NameObject.getName(this, options.pageLayout));
+    if (options.pageMode && options.pageMode !== PdfPageMode.USE_NONE)
+      this.catalog?.setValueByKey('PageMode', NameObject.getName(this, options.pageMode));
+    if (options.viewerPreferences && this.versionGreaterOrEqual(PdfVersion.V1_2)) {
+      const viewerPreferences = new DictionaryObject(this);
+      this.catalog?.setValueByKey('ViewerPreferences', viewerPreferences);
+      viewerPreferences?.setValueByKey('DisplayDocTitle', new BooleanObject(this, options.viewerPreferences.displayDocTitle!));
+    }
     this.trailer.setValueByKey('Root', this.catalog as DictionaryObject);
     this.trailer.setValueByKey('Info', this.info);
   }
@@ -266,10 +275,10 @@ export class PDFDocument implements IPDFDocument {
    * @returns {void}
    */
   createInfo(): void {
-    this.info.setValueByKey('Title', new StringObject(this, this.title));
-    this.info.setValueByKey('Subject', new StringObject(this, this.subject));
-    this.info.setValueByKey('Keywords', new StringObject(this, this.keywords));
-    this.info.setValueByKey('Author', new StringObject(this, this.author));
+    if (this.title !== '') this.info.setValueByKey('Title', new StringObject(this, this.title));
+    if (this.subject !== '') this.info.setValueByKey('Subject', new StringObject(this, this.subject));
+    if (this.keywords !== '') this.info.setValueByKey('Keywords', new StringObject(this, this.keywords));
+    if (this.author !== '') this.info.setValueByKey('Author', new StringObject(this, this.author));
     this.info.setValueByKey('Creator', new StringObject(this, 'htmlWebsite2pdf'));
     this.info.setValueByKey('Producer', new StringObject(this, 'htmlWebsite2pdf'));
     const date = dateToASN1(new Date());
@@ -854,6 +863,14 @@ export class PDFDocument implements IPDFDocument {
       throw new Error('No contents in page or contents is not a ArrayObject');
     }
     return annots;
+  }
+
+  /**
+   * Check if the version of the PDF document is greater or equal to the given version.
+   * @returns {number} The version to check against.
+   */
+  private versionGreaterOrEqual(version: PdfVersion): boolean {
+    return parseFloat(this.version) >= parseFloat(version);
   }
 }
 

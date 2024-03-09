@@ -8,3 +8,4 @@ export * from './TPosition';
 export * from './TBookmark';
 export * from './TLinkOptions';
 export * from './TTextOptions';
+export * from './TViewerPreferences';
