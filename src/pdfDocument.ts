@@ -613,6 +613,10 @@ export class PDFDocument implements IPDFDocument {
     }
   }
 
+  /**
+   * Create the document outline object of the PDF document and add it to the catalog.
+   * @returns {void}
+   */
   private createDocumentOutline(): void {
     if (!this.bookmarkStructure.length) return;
     const outline = new DictionaryObject(this, new Map(), true);
@@ -639,6 +643,13 @@ export class PDFDocument implements IPDFDocument {
     this.catalog?.setValueByKey('Outlines', outline);
   }
 
+  /**
+   * Create an outline item for the document outline.
+   * @param {PDFDocument} pdf - The PDF document.
+   * @param {TBookmark} bookmark - The bookmark to create the outline item for.
+   * @param {DictionaryObject} parent - The parent of the outline item.
+   * @returns {void}
+   */
   private createOutlineItem(pdf: PDFDocument, bookmark: TBookmark, parent: DictionaryObject): void {
     const outlineItem = new DictionaryObject(pdf, new Map(), true);
     bookmark.objectId = outlineItem.id;
@@ -670,7 +681,7 @@ export class PDFDocument implements IPDFDocument {
    * Add a link to the the PDF document.
    * @param {TPosition} pos - The position of the link in pt.
    * @param {number} width - The width of the link in pt.
-   * @param {number} height - The height of the link in pt. 
+   * @param {number} height - The height of the link in pt.
    * @param {Page} page - The page on which the link should be added.
    * @param {DictionaryObject | ArrayObject} dest - The destination of the link. This can be a DictionaryObject or an ArrayObject. If it is a DictionaryObject, it will be used as the 'A' value of the link. If it is an ArrayObject, it will be used as the 'Dest' value of the link.
    * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
@@ -726,7 +737,7 @@ export class PDFDocument implements IPDFDocument {
    * Add an internal link to the PDF document.
    * @param {TPosition} pos - The position of the link in pt.
    * @param {number} width - The width of the link in pt.
-   * @param {number} height - The height of the link in pt. 
+   * @param {number} height - The height of the link in pt.
    * @param {Page} page - The page on which the link should be added.
    * @param {Page} dest - The destination of the link.
    * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
@@ -741,7 +752,7 @@ export class PDFDocument implements IPDFDocument {
    * Add an external link to the PDF document.
    * @param {TPosition} pos - The position of the link in pt.
    * @param {number} width - The width of the link in pt.
-   * @param {number} height - The height of the link in pt. 
+   * @param {number} height - The height of the link in pt.
    * @param {Page} page - The page on which the link should be added.
    * @param {string} dest - The destination of the link.
    * @param {TLinkOptions} options - Additional options for the link, like the border-color, border-width and border-radius. If no options are provided, the link will have no border.
