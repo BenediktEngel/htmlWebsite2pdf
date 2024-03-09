@@ -17,7 +17,7 @@ import { Page } from './objects/IntermediateObjects/Page';
 import { PageTree } from './objects/IntermediateObjects/PageTree';
 import { Rectangle } from './objects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
-import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark, TLinkOptions } from './types';
+import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark, TLinkOptions, TTextOptions } from './types';
 import { RGB, dateToASN1, toHex } from './utils';
 import * as fontHelper from './Font';
 import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
@@ -317,13 +317,42 @@ export class PDFDocument implements IPDFDocument {
 
   /**
    * Add text to the current page of the PDF document.
+   * @overload
+   * @param {TPosition} pos The position of the text in pt.
    * @param {string} text The text to add
    * @param {string} fontName The name of the font to use, must be added before with addFont
-   * @param {string} fontSize The size of the font
-   * @param {number} x The x position of the text (0 is the lower left corner of the page)
-   * @param {number} y The y position of the text (0 is the lower left corner of the page)
+   * @param {number} fontSize The size of the font
+   * @param {number | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
+   * @returns {void}
+   * @overload
+   * @param {TPosition} pos The position of the text in pt.
+   * @param {string} text The text to add
+   * @param {string} fontName The name of the font to use, must be added before with addFont
+   * @param {number} fontSize The size of the font
+   * @param {TTextOptions | number | undefined} [pageOrOptions=undefined] A page number to add the text to or additional options for the text, like the fill-color, stroke-color and stroke-width. If no options are provided, the text will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @param {number | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
+   * @returns {void}
    */
-  addTextToCurrentPage(text: string, fontName: string, fontSize: number, x: number, y: number): void {
+  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number): void;
+  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, options?: TTextOptions | undefined): void;
+  addTextToCurrentPage(
+    pos: TPosition,
+    text: string,
+    fontName: string,
+    fontSize: number,
+    optionsOrPage: TTextOptions | number | undefined,
+    page?: number,
+  ): void {
+    let pageId;
+    let options;
+    if (typeof optionsOrPage === 'number' || optionsOrPage === undefined) {
+      pageId = optionsOrPage;
+      options = {};
+    } else {
+      options = optionsOrPage;
+      pageId = page;
+    }
+    let newX = pos.x;
     const font = this.includedFonts.get(fontName);
     if (!font) {
       throw new Error(`Font with name ${fontName} not found`);
@@ -337,8 +366,25 @@ export class PDFDocument implements IPDFDocument {
       font.usedChars.add(char);
     });
     this.includedFonts.set(fontName, font);
+    if (options.alignment && options.alignment !== 'left' && !options.maxWidth) {
+      throw new Error('maxWidth is required for text alignment other than left');
+    }
+    if (options.maxWidth && options.alignment && options.alignment !== 'left') {
+      const glyphsForString = font.fontObj.layout(text).glyphs;
+      let fullWidth = 0;
+      let fontScaling = 1000 / font.fontObj.unitsPerEm;
+      glyphsForString.forEach((glyph: any) => {
+        fullWidth += glyph.advanceWidth * fontScaling * (fontSize / 1000);
+      });
+      if (options.alignment === 'center') {
+        newX += (options.maxWidth - fullWidth) / 2;
+      } else if (options.alignment === 'right') {
+        newX += options.maxWidth - fullWidth;
+      }
+      console.log;
+    }
     // get current (last) PageObject
-    const currentPage = this.getCurrentPage();
+    const currentPage = this.getPageAt(pageId);
     // If resources dont include the font add it
     const currentPageResources = this.getPageRessources(currentPage);
     const fontResource = currentPageResources.getValueByKey('Font');
@@ -351,8 +397,7 @@ export class PDFDocument implements IPDFDocument {
           new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
             [[NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]],
           ),
-        ),
-      );
+        ), );
     } else if (fontResource instanceof DictionaryObject) {
       fontResource.setValueByKey(NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject);
     }
@@ -362,35 +407,40 @@ export class PDFDocument implements IPDFDocument {
     font.fontObj.layout(text).glyphs.forEach((glyph: any) => {
       hexString += toHex(glyph.id);
     });
-    // create the textstream
-    const textContent = new StreamObject(this, `BT /${fontName} ${fontSize} Tf ${x} ${y} Td <${hexString}> Tj ET`, new DictionaryObject(this), true);
-
     // Add content to contents
-    const currentPageContents = currentPage.getValueByKey('Contents');
-    if (!currentPageContents) {
-      currentPage.setValueByKey('Contents', new ArrayObject(this, [textContent], true));
-    } else if (currentPageContents instanceof ArrayObject) {
-      currentPageContents.push(textContent);
-    }
+    this.appendToPageContents(currentPage, Buffer.from(`BT /${fontName} ${fontSize} Tf ${newX} ${pos.y} Td <${hexString}> Tj ET`));
   }
 
+  /**
+   * Add an image to a page of the PDF document.
+   * @param {TPosition} pos - The position where the image should be placed on the page in pt.
+   * @param {Buffer} image - The image as a Buffer.
+   * @param {number} width - The width of the image in pt.
+   * @param {number} height - The height of the image in pt.
+   * @param {number} embedWidth - The width of the image on the page in pt.
+   * @param {number} embedHeight - The height of the image on the page in pt.
+   * @param {ImageFormats} format - The format of the image.
+   * @param {string} imageName - The name of the image, which will be used to reference the image when adding it to the page.
+   * @param {number} [page=undefined] - The page number (starting at 0) to add the image to, if no page is provided, the image will be added to the current (last) page.
+   * @returns {void}
+   */
   addImageToCurrentPage(
+    pos: TPosition,
     image: Buffer,
-    x: number,
-    y: number,
     width: number,
     height: number,
     embedWidth: number,
     embedHeight: number,
     format: ImageFormats,
     imageName: string,
+    page?: number,
   ): void {
-    const currentPage = this.getCurrentPage();
     let imageStream;
+    console.log(format);
     if (format === ImageFormats.JPEG) {
       imageStream = new StreamObject(
         this,
-        image,
+        Buffer.from(image),
         new DictionaryObject(
           this,
           new Map<NameObject, NameObject | NumericObject>([
@@ -408,6 +458,7 @@ export class PDFDocument implements IPDFDocument {
     } else {
       throw new Error('Image format is currently not supported');
     }
+    const currentPage = this.getPageAt(page);
     const currentPageResources = this.getPageRessources(currentPage);
     const imageResource = currentPageResources.getValueByKey('XObject');
     if (!imageResource) {
@@ -424,44 +475,62 @@ export class PDFDocument implements IPDFDocument {
     } else if (imageResource instanceof DictionaryObject) {
       imageResource.setValueByKey(NameObject.getName(this, imageName), imageStream);
     }
-
-    const imageContent = new StreamObject(
-      this,
-      `q ${embedWidth} 0 0 ${embedHeight} ${x} ${y} cm /${imageName} Do Q`,
-      new DictionaryObject(this),
-      true,
-    );
-
-    const currentPageContents = currentPage.getValueByKey('Contents');
-    if (!currentPageContents) {
-      currentPage.setValueByKey('Contents', new ArrayObject(this, [imageContent as StreamObject], true));
-    } else if (currentPageContents instanceof ArrayObject) {
-      currentPageContents.push(imageContent as StreamObject);
-    }
+    this.appendToPageContents(currentPage, Buffer.from(`q ${embedWidth} 0 0 ${embedHeight} ${pos.x} ${pos.y} cm /${imageName} Do Q`));
   }
 
   /**
    * Draw a rectangle to the current page of the PDF document.
+   * @overload
+   * @param {TPosition} pos - The lower left corner of the rectangle in pt.
+   * @param {number} width - The width of the rectangle in pt.
+   * @param {number} height - The height of the rectangle in pt.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the rectangle on, if no page is provided, the rectangle will be drawn on the current (last) page.
+   * @returns {void}
+   *
+   * @overload
    * @param {TPosition} pos - The lower left corner of the rectangle in pt.
    * @param {number} width - The width of the rectangle in pt.
    * @param {number} height - The height of the rectangle in pt.
    * @param {TRectangleOptions} [options={}] - Additional options for the rectangle, like the fill-color, stroke-color and stroke-width. If no options are provided, the rectangle will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the rectangle on, if no page is provided, the rectangle will be drawn on the current (last) page.
+   * @returns {void}
+   *
+   * @overload
+   * @param {TPosition} pos - The lower left corner of the rectangle in pt.
+   * @param {number} width - The width of the rectangle in pt.
+   * @param {number} height - The height of the rectangle in pt.
+   * @param {TRectangleOptions | number | undefined} [pageOrOptions=undefined] - A page number to draw the rectangle on or additional options for the rectangle, like the fill-color, stroke-color and stroke-width. If no options are provided, the rectangle will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the rectangle on, if no page is provided, the rectangle will be drawn on the current (last) page.
    * @returns {void}
    */
-  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions = {}): void {
+  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, page?: number): void;
+  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions, page?: number): void;
+  drawRectangleToCurrentPage(
+    pos: TPosition,
+    width: number,
+    height: number,
+    pageOrOptions: TRectangleOptions | number | undefined,
+    page?: number,
+  ): void {
+    let pageId;
+    let options;
+    if (typeof pageOrOptions === 'number' || pageOrOptions === undefined) {
+      pageId = pageOrOptions;
+      options = {};
+    } else {
+      options = pageOrOptions;
+      pageId = page;
+    }
     const fillColor = options.fillColor || { r: 0, g: 0, b: 0 };
     const strokeColor = options.strokeColor || { r: 0, g: 0, b: 0 };
     const strokeWidth = options.strokeWidth || 0;
-    const currentPage = this.getCurrentPage();
-    const currentPageContents = this.getPageContents(currentPage);
-    currentPageContents.push(
-      new StreamObject(
-        this,
+    const currentPage = this.getPageAt(pageId);
+    this.appendToPageContents(
+      currentPage,
+      Buffer.from(
         `${strokeWidth} w q ${strokeColor.r} ${strokeColor.g} ${strokeColor.b} RG ${fillColor.r} ${fillColor.g} ${fillColor.b} rg ${pos.x} ${
           pos.y
         } ${width} ${height} re ${options.strokeColor ? 'B' : 'f'} Q`,
-        new DictionaryObject(this),
-        true,
       ),
     );
   }
@@ -473,17 +542,20 @@ export class PDFDocument implements IPDFDocument {
    * @param {TPosition} end - The end position of the line in pt.
    * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
    * @returns {void}
+   *
    * @overload
    * @param {TPosition} start - The start position of the line in pt.
    * @param {TPosition} end - The end position of the line in pt.
    * @param {TLineOptions} [options={}] - Additional options for the line, like the stroke-color and stroke-width. If no options are provided, the line will be drawn with a black color and a width of 1pt.
    * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
    * @returns {void}
+   *
    * @overload
    * @param {TPosition} start - The start position of the line in pt.
    * @param {TPosition} end - The end position of the line in pt.
    * @param {TLineOptions} [options={}] - Additional options for the line, like the stroke-color and stroke-width. If no options are provided, the line will be drawn with a black color and a width of 1pt.
    * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
+   * @returns {void}
    */
   drawLineToCurrentPage(start: TPosition, end: TPosition, page?: number): void;
   drawLineToCurrentPage(start: TPosition, end: TPosition, options?: TLineOptions, page?: number): void;
@@ -500,14 +572,9 @@ export class PDFDocument implements IPDFDocument {
     const strokeColor = options.strokeColor || { r: 0, g: 0, b: 0 };
     const strokeWidth = options.strokeWidth || 1;
     const currentPage = this.getPageAt(pageId);
-    const currentPageContents = this.getPageContents(currentPage);
-    currentPageContents.push(
-      new StreamObject(
-        this,
-        `${strokeWidth} w q ${strokeColor.r} ${strokeColor.g} ${strokeColor.b} RG ${start.x} ${start.y} m ${end.x} ${end.y} l S Q`,
-        new DictionaryObject(this),
-        true,
-      ),
+    this.appendToPageContents(
+      currentPage,
+      Buffer.from(`${strokeWidth} w q ${strokeColor.r} ${strokeColor.g} ${strokeColor.b} RG ${start.x} ${start.y} m ${end.x} ${end.y} l S Q`),
     );
   }
 
@@ -751,6 +818,24 @@ export class PDFDocument implements IPDFDocument {
       throw new Error('No contents in page or contents is not a ArrayObject');
     }
     return contents;
+  }
+
+  /**
+   * Append content to the contents of a page. If the last content is a StreamObject, the new content will be appended to the existing content, otherwise a new StreamObject will be created.
+   * @param {Page} page The page to append the content to.
+   * @param {Buffer} content The content to append.
+   * @returns {void}
+   */
+  private appendToPageContents(page: Page, content: Buffer): void {
+    const contents = this.getPageContents(page);
+    const lastContent = contents.getAt(contents.length - 1);
+    if (lastContent instanceof StreamObject) {
+      lastContent.value = Buffer.concat([Buffer.from(lastContent.value), Buffer.from(' '), content]);
+      return;
+    } else {
+      const stream = new StreamObject(this, content, new DictionaryObject(this), true);
+      contents.push(stream);
+    }
   }
 
   /**
