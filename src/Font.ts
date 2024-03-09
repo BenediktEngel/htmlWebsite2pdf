@@ -27,21 +27,27 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
     glyphs.push(font.fontObj.glyphForCodePoint(codePoint));
   });
   const glyphsSorted = glyphs.sort((a, b) => a.id - b.id);
+  // Remove duplicates
+  for (let i = 0; i < glyphsSorted.length; i++) {
+    if (glyphsSorted[i] == glyphsSorted[i + 1]) {
+      glyphsSorted.splice(i, 1);
+    }
+  }
 
   // Create the widths array
-  const widths = [];
-  let lastId = -100;
-  const subWidths: Array<NumericObject> = [];
+  const widths: Array<NumericObject | ArrayObject> = [];
+  let lastId = -100; // Set last Id to a value that is not possible so the first glyph will be added to the widths array
+  let subWidths: Array<NumericObject> = [];
   glyphsSorted.forEach((glyph) => {
     if (glyph.id !== lastId + 1) {
       if (subWidths.length > 0) {
         widths.push(new ArrayObject(pdf, subWidths));
-        subWidths.length = 0;
+        subWidths = new Array();
       }
       widths.push(new NumericObject(pdf, glyph.id));
     }
     lastId = glyph.id;
-    subWidths.push(new NumericObject(pdf, glyph.advanceWidth * fontScaling));
+    subWidths.push(new NumericObject(pdf, Math.round(glyph.advanceWidth * fontScaling)));
   });
   if (subWidths.length > 0) {
     widths.push(new ArrayObject(pdf, subWidths));
@@ -118,7 +124,9 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
       .join(' ')}>`;
     cmapValues.push([id, unicode]);
   });
-
+  const cmapArray = cmapValues.map(([id, unicode]) => `${id} ${unicode}`).filter((v) => v !== undefined);
+  const cmapLength = cmapArray.length;
+  const cmapAsString = cmapArray.join('\n');
   const cmap = `\
   /CIDInit /ProcSet findresource begin
   12 dict begin
@@ -133,8 +141,8 @@ export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: Font
   1 begincodespacerange
   <0000><ffff>
   endcodespacerange
-  ${cmapValues.length} beginbfchar
-  ${cmapValues.map(([id, codePoint]) => `${id} ${codePoint}`).join('\n')}
+  ${cmapLength} beginbfchar
+  ${cmapAsString}
   endbfchar
   endcmap
   CMapName currentdict /CMap defineresource pop
