@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "lint": "node_modules/eslint/bin/eslint.js src/**/*.ts",
-    "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/bundle.js"
+    "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/bundle.js",
+    "minify": "uglifyjs dist/bundle.js > dist/bundle.min.js"
   },
   "author": "Benedikt Engel",
   "license": "MIT",
@@ -25,7 +26,8 @@
     "eslint-plugin-prettier": "^4.0.0",
     "prettier": "^2.6.2",
     "typedoc": "^0.25.9",
-    "typescript": "^4.6.3"
+    "typescript": "^4.6.3",
+    "uglify-js": "^3.17.4"
   },
   "files": [
     "lib/**/*"

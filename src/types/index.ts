@@ -9,3 +9,6 @@ export * from './TBookmark';
 export * from './TLinkOptions';
 export * from './TTextOptions';
 export * from './TViewerPreferences';
+export * from './TGenerateOptions';
+export * from './TFontSrc';
+export * from './TTextNodeData';
