@@ -1,15 +1,15 @@
 import { FontFlagTypes } from './enums';
-import { NameObject } from './objects/BasicObjects/NameObject';
-import { ArrayObject } from './objects/BasicObjects/ArrayObject';
-import { DictionaryObject } from './objects/BasicObjects/DictionaryObject';
-import { IntegerObject } from './objects/BasicObjects/IntegerObject';
-import { NumericObject } from './objects/BasicObjects/NumericObject';
-import { StreamObject } from './objects/BasicObjects/StreamObject';
-import { StringObject } from './objects/BasicObjects/StringObject';
-import { Rectangle } from './objects/IntermediateObjects/Rectangle';
+import { NameObject } from './pdfObjects/BasicObjects/NameObject';
+import { ArrayObject } from './pdfObjects/BasicObjects/ArrayObject';
+import { DictionaryObject } from './pdfObjects/BasicObjects/DictionaryObject';
+import { IntegerObject } from './pdfObjects/BasicObjects/IntegerObject';
+import { NumericObject } from './pdfObjects/BasicObjects/NumericObject';
+import { StreamObject } from './pdfObjects/BasicObjects/StreamObject';
+import { StringObject } from './pdfObjects/BasicObjects/StringObject';
+import { Rectangle } from './pdfObjects/IntermediateObjects/Rectangle';
 import { fontFlagsAsInt, toHex } from './utils';
-import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
-import { FontDescriptorDictionary } from './objects/IntermediateObjects/FontDescriptorDictionary';
+import { FontDictionary } from './pdfObjects/IntermediateObjects/FontDictionary';
+import { FontDescriptorDictionary } from './pdfObjects/IntermediateObjects/FontDescriptorDictionary';
 import type { PDFDocument } from './pdfDocument';
 
 /**

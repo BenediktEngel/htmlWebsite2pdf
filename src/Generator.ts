@@ -3,7 +3,7 @@ import { TBookmarkObject, TFilledGenerateOptions, TFontInfo, TFontSrc, TGenerate
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { px, pt } from './utils';
-import Page from 'objects/IntermediateObjects/Page';
+import Page from 'pdfObjects/IntermediateObjects/Page';
 
 export class Generator {
   title: string = '';

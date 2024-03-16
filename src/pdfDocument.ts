@@ -1,26 +1,26 @@
 import * as fontkit from 'fontkit';
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
-import { CrossReferenceTable } from './sections/CrossReferenceTable';
-import { BaseObject } from './objects/BasicObjects/BaseObject';
-import { NameObject } from './objects/BasicObjects/NameObject';
-import { ArrayObject } from './objects/BasicObjects/ArrayObject';
-import { BooleanObject } from './objects/BasicObjects/BooleanObject';
-import { DictionaryObject } from './objects/BasicObjects/DictionaryObject';
-import { IntegerObject } from './objects/BasicObjects/IntegerObject';
-import { NullObject } from './objects/BasicObjects/NullObject';
-import { NumericObject } from './objects/BasicObjects/NumericObject';
-import { StreamObject } from './objects/BasicObjects/StreamObject';
-import { StringObject } from './objects/BasicObjects/StringObject';
-import { CatalagDictionary } from './objects/IntermediateObjects/CatalogDictionary';
-import { Page } from './objects/IntermediateObjects/Page';
-import { PageTree } from './objects/IntermediateObjects/PageTree';
-import { Rectangle } from './objects/IntermediateObjects/Rectangle';
+import { CrossReferenceTable } from './pdfSections/CrossReferenceTable';
+import { BaseObject } from './pdfObjects/BasicObjects/BaseObject';
+import { NameObject } from './pdfObjects/BasicObjects/NameObject';
+import { ArrayObject } from './pdfObjects/BasicObjects/ArrayObject';
+import { BooleanObject } from './pdfObjects/BasicObjects/BooleanObject';
+import { DictionaryObject } from './pdfObjects/BasicObjects/DictionaryObject';
+import { IntegerObject } from './pdfObjects/BasicObjects/IntegerObject';
+import { NullObject } from './pdfObjects/BasicObjects/NullObject';
+import { NumericObject } from './pdfObjects/BasicObjects/NumericObject';
+import { StreamObject } from './pdfObjects/BasicObjects/StreamObject';
+import { StringObject } from './pdfObjects/BasicObjects/StringObject';
+import { CatalagDictionary } from './pdfObjects/IntermediateObjects/CatalogDictionary';
+import { Page } from './pdfObjects/IntermediateObjects/Page';
+import { PageTree } from './pdfObjects/IntermediateObjects/PageTree';
+import { Rectangle } from './pdfObjects/IntermediateObjects/Rectangle';
 import { IIndirectObject, IPDFDocument } from './interfaces';
 import { TDocumentOptions, TRectangleOptions, TLineOptions, TPosition, TBookmark, TLinkOptions, TTextOptions } from './types';
 import { RGB, dateToASN1, toHex } from './utils';
 import * as fontHelper from './Font';
-import { FontDictionary } from './objects/IntermediateObjects/FontDictionary';
+import { FontDictionary } from './pdfObjects/IntermediateObjects/FontDictionary';
 
 export class PDFDocument implements IPDFDocument {
   /**

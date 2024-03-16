@@ -1,5 +1,5 @@
 import type { PDFDocument } from '../pdfDocument';
-import { NumericObject } from '../objects/BasicObjects/NumericObject';
+import { NumericObject } from '../pdfObjects/BasicObjects/NumericObject';
 import { CrossReferenceSection } from './CrossReferenceSection';
 import { ICrossReferenceTable } from '../interfaces';
 

@@ -1,12 +1,12 @@
 import type { PDFDocument } from '../pdfDocument';
-import { NameObject } from '../objects/BasicObjects/NameObject';
-import { ArrayObject } from '../objects/BasicObjects/ArrayObject';
-import { BooleanObject } from '../objects/BasicObjects/BooleanObject';
-import { DictionaryObject } from '../objects/BasicObjects/DictionaryObject';
-import { NullObject } from '../objects/BasicObjects/NullObject';
-import { NumericObject } from '../objects/BasicObjects/NumericObject';
-import { StreamObject } from '../objects/BasicObjects/StreamObject';
-import { StringObject } from '../objects/BasicObjects/StringObject';
+import { NameObject } from '../pdfObjects/BasicObjects/NameObject';
+import { ArrayObject } from '../pdfObjects/BasicObjects/ArrayObject';
+import { BooleanObject } from '../pdfObjects/BasicObjects/BooleanObject';
+import { DictionaryObject } from '../pdfObjects/BasicObjects/DictionaryObject';
+import { NullObject } from '../pdfObjects/BasicObjects/NullObject';
+import { NumericObject } from '../pdfObjects/BasicObjects/NumericObject';
+import { StreamObject } from '../pdfObjects/BasicObjects/StreamObject';
+import { StringObject } from '../pdfObjects/BasicObjects/StringObject';
 import { ICrossReferenceSection } from '../interfaces';
 
 export class CrossReferenceSection implements ICrossReferenceSection {
