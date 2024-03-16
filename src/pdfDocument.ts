@@ -406,7 +406,8 @@ export class PDFDocument implements IPDFDocument {
           new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>(
             [[NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject]],
           ),
-        ), );
+        ),
+      );
     } else if (fontResource instanceof DictionaryObject) {
       fontResource.setValueByKey(NameObject.getName(this, fontName), this.indirectObjects.get(fontId)?.obj as DictionaryObject);
     }
@@ -781,7 +782,7 @@ export class PDFDocument implements IPDFDocument {
    * @throws {Error} If the current page doesn't exist or is not a Page.
    * @throws {Error} If the root object doesn't exist or is not a PageTree.
    */
-  private getCurrentPage(): Page {
+  getCurrentPage(): Page {
     return this.getPageAt();
   }
 
