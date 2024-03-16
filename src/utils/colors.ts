@@ -1,4 +1,5 @@
 import type { TCMYK, THSL, TRGB } from '../types';
+import { toHex } from './toHex';
 
 export const RGB = {
   /**
@@ -23,10 +24,7 @@ export const RGB = {
    */
   toRGBHex: (value: TRGB): string => {
     const { r, g, b } = RGB.changeRange255(value);
-    const rHex = r.toString(16).padStart(2, '0');
-    const gHex = g.toString(16).padStart(2, '0');
-    const bHex = b.toString(16).padStart(2, '0');
-    return `#${rHex}${gHex}${bHex}`;
+    return `#${toHex(r, 2)}${toHex(g, 2)}${toHex(b, 2)}`;
   },
   /**
    * Convert the RGB value to HSL value, the range of the RGB value can be 0-1 or 0-255

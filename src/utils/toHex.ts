@@ -1,10 +1,11 @@
 /**
- * Convert a number to a 4 digit hex string
- * @param num The number to convert
- * @returns The 4 digit hex string
+ * Convert a number to a hex string
+ * @param {number} num The number to convert
+ * @param {number} [length=4] The length of the hex string, default is 4
+ * @returns {string} The hex string
  */
-export function toHex(num: number): string {
-  return `0000${num.toString(16)}`.slice(-4);
+export function toHex(num: number, length: number = 4): string {
+  return `${'0'.repeat(length)}${num.toString(16)}`.slice(-length);
 }
 
 export default { toHex };
