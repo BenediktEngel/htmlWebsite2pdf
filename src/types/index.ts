@@ -1,14 +1,7 @@
-export * from './TOptionalValue';
-export * from './TRequieredValue';
-export * from './TDocumentOptions';
+// Types from subfolders
 export * from './colors';
-export * from './TLineOptions';
-export * from './TRectangleOptions';
-export * from './TPosition';
-export * from './TBookmark';
-export * from './TLinkOptions';
-export * from './TTextOptions';
+export * from './generator';
+export * from './pdf';
+
+// Types which couldn't be sorted into subfolders cause they are used in multiple places
 export * from './TViewerPreferences';
-export * from './TGenerateOptions';
-export * from './TFontSrc';
-export * from './TTextNodeData';

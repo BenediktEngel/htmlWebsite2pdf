@@ -1,5 +1,5 @@
 import { PdfPageLayout, PdfPageMode, PdfVersion } from 'enums';
-import { TViewerPreferences } from './TViewerPreferences';
+import { TViewerPreferences } from '../TViewerPreferences';
 
 export type TGenerateOptions = {
   margin?: number | [number, number] | [number, number, number, number];

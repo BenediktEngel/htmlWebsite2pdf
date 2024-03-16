@@ -1,5 +1,5 @@
 import { PdfPageMode, PdfVersion, PdfPageLayout } from 'enums';
-import { TViewerPreferences } from './TViewerPreferences';
+import { TViewerPreferences } from '../TViewerPreferences';
 
 export type TDocumentOptions = {
   version?: PdfVersion;

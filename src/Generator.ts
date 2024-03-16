@@ -1,8 +1,9 @@
 import PDFDocument from './pdfDocument';
-import { TFilledGenerateOptions, TFontInfo, TFontSrc, TGenerateOptions, TTextNodeData } from './types';
+import { TBookmarkObject, TFilledGenerateOptions, TFontInfo, TFontSrc, TGenerateOptions, TRGB, TTextNodeData } from './types';
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { px, pt } from './utils';
+import Page from 'objects/IntermediateObjects/Page';
 
 export class Generator {
   title: string = '';
@@ -43,7 +44,7 @@ export class Generator {
 
   pages: Array<{ pdfPage: Page; yStart: number; yEnd: number }> = [];
 
-  bookmarks: Array<{ type: number; children: Array<{}> }> = [];
+  bookmarks: Array<TBookmarkObject> = [];
 
   currentHeader: {} | null = null;
   currentFooter: {} | null = null;
@@ -247,8 +248,6 @@ export class Generator {
     this.scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
     this.offsetY = inputEl.getBoundingClientRect().y + this.scrollTop;
     await this.goTroughElements(inputEl);
-    console.log(this.pages);
-    console.log(this.bookmarks);
     this.showIgnoredElements();
 
     // Save the pdf to a file
@@ -288,11 +287,10 @@ export class Generator {
           }
           // TODO: Maybe add here the check if we need a new page
           // if(window.getComputedStyle(child).display === 'block') {
-            this.addBordersToPdf(child);
+          this.addBordersToPdf(child);
           // }
           switch (child.tagName.toLowerCase()) {
             case 'img':
-              console.log(child);
               this.enoughSpaceOnPageForElement(child.getBoundingClientRect().bottom, child.getBoundingClientRect().top);
               let imgData = await fetch(child.src).then((res) => res.arrayBuffer());
               this.pdf.addImageToCurrentPage(
@@ -350,14 +348,14 @@ export class Generator {
             // Check if the element fits on the current page, if not add a new page
             this.enoughSpaceOnPageForElement(element.position.bottom, element.position.top);
             // TODO: This is a workaround to place the text more correct (Problem are the descender and ascender of the font, which is not included in the font-size but in the element height)
-            const textOffset = ((element.position.height - parseInt(element.styles.fontSize.replace('px', ''))));
+            const textOffset = element.position.height - parseInt(element.styles.fontSize.replace('px', ''));
             this.pdf.addTextToCurrentPage(
               {
                 x: px.toPt(element.position.x - this.offsetX) + this.margin[3],
                 y:
                   this.availableDefaultPageHeight -
                   +px.toPt(
-                    element.position.bottom + this.scrollTop - this.offsetY -textOffset
+                    element.position.bottom + this.scrollTop - this.offsetY - textOffset,
                     // + (element.position.height / element.lines.length) * (j + 1)
                   ) +
                   this.margin[1],
@@ -468,7 +466,7 @@ export class Generator {
   }
 
   findBookmarkPosition(
-    bookmarks: Array<{ type: number; children: Array<{}> }>,
+    bookmarks: Array<TBookmarkObject>,
     level: number,
     positionArray: Array<number> = [],
   ): { bookmarks: Array<any>; positions: Array<number> } {
@@ -560,7 +558,7 @@ export class Generator {
    * @returns {void}
    * @private
    */
-  private async getFontsOfWebsite(): void {
+  private async getFontsOfWebsite(): Promise<void> {
     // TODO: add also support for local fonts which are not loaded from a stylesheet, via local font api
     // if ('queryLocalFonts' in window) {
     //   // The Local Font Access API is supported

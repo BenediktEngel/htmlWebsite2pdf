@@ -390,7 +390,6 @@ export class PDFDocument implements IPDFDocument {
       } else if (options.alignment === 'right') {
         newX += options.maxWidth - fullWidth;
       }
-      console.log;
     }
     // get current (last) PageObject
     const currentPage = this.getPageAt(pageId);
@@ -446,7 +445,6 @@ export class PDFDocument implements IPDFDocument {
     page?: number,
   ): void {
     let imageStream;
-    console.log(format);
     if (format === ImageFormats.JPEG) {
       imageStream = new StreamObject(
         this,

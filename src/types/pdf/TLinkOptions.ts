@@ -1,4 +1,4 @@
-import { TRGB } from './colors/TRGB';
+import { TRGB } from '../colors/TRGB';
 
 export type TLinkOptions = {
   border?: {

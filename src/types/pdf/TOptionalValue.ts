@@ -1,4 +1,4 @@
-import { BaseObjects, IntermediateObject, PdfVersion } from '../enums';
+import { BaseObjects, IntermediateObject, PdfVersion } from 'enums';
 
 export type TOptionalValue = {
   name: string;
