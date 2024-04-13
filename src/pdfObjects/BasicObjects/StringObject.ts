@@ -41,7 +41,7 @@ export class StringObject extends BaseObject implements IStringObject {
    * @returns {Buffer} The Buffer representation of the object
    */
   toBuffer(): Buffer {
-    return super.toBuffer(Buffer.from(this.stringType === StringType.HEXADECIMAL ? `<${this.value}>` : `(${this.value})`));
+    return super.toBuffer(Buffer.from(this.stringType === StringType.HEXADECIMAL ? `<${this.value}>` : `(${this.value.replace('ü','ue').replace('ä','ae').replace('ö','oe')})`));
   }
 
   /**

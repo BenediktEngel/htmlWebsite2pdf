@@ -1,5 +1,5 @@
 import * as fontkit from 'fontkit';
-import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
+import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion, StringType } from './enums';
 import { PageDimensions } from './constants';
 import { CrossReferenceTable } from './pdfSections/CrossReferenceTable';
 import { BaseObject } from './pdfObjects/BasicObjects/BaseObject';
@@ -339,7 +339,7 @@ export class PDFDocument implements IPDFDocument {
    * @param {string} fontName The name of the font to use, must be added before with addFont
    * @param {number} fontSize The size of the font
    * @param {TTextOptions | number | undefined} [pageOrOptions=undefined] A page number to add the text to or additional options for the text, like the fill-color, stroke-color and stroke-width. If no options are provided, the text will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
-   * @param {number | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
+   * @param {number | Page | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
    * @returns {void}
    */
   addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number): void;
@@ -350,7 +350,7 @@ export class PDFDocument implements IPDFDocument {
     fontName: string,
     fontSize: number,
     optionsOrPage: TTextOptions | number | undefined,
-    page?: number,
+    page?: number | Page | undefined,
   ): void {
     let pageId;
     let options;
@@ -392,7 +392,13 @@ export class PDFDocument implements IPDFDocument {
       }
     }
     // get current (last) PageObject
-    const currentPage = this.getPageAt(pageId);
+    let currentPage = undefined;
+    if (typeof pageId === 'number' || pageId === undefined) {
+      currentPage = this.getPageAt(pageId);
+    } else {
+      currentPage = pageId;
+    }
+
     // If resources dont include the font add it
     const currentPageResources = this.getPageRessources(currentPage);
     const fontResource = currentPageResources.getValueByKey('Font');
@@ -416,8 +422,16 @@ export class PDFDocument implements IPDFDocument {
     font.fontObj.layout(text).glyphs.forEach((glyph: any) => {
       hexString += toHex(glyph.id);
     });
-    // Add content to contents
-    this.appendToPageContents(currentPage, Buffer.from(`BT /${fontName} ${fontSize} Tf ${newX} ${pos.y} Td <${hexString}> Tj ET`));
+    let colorString = ''
+    if(options.color) {
+       colorString = `${options.color.r} ${options.color.g} ${options.color.b} rg`
+    }
+    let wordspaceString = ''
+    if(options.wordspace) {
+       wordspaceString = `${options.wordspace} Tw`
+        }
+            // Add content to contents
+    this.appendToPageContents(currentPage, Buffer.from(`BT /${fontName} ${fontSize} Tf ${colorString} ${wordspaceString} ${newX} ${pos.y} Td <${hexString}> Tj ET`));
   }
 
   /**
@@ -442,7 +456,7 @@ export class PDFDocument implements IPDFDocument {
     embedHeight: number,
     format: ImageFormats,
     imageName: string,
-    page?: number,
+    page?: number | Page,
   ): void {
     let imageStream;
     if (format === ImageFormats.JPEG) {
@@ -466,7 +480,12 @@ export class PDFDocument implements IPDFDocument {
     } else {
       throw new Error('Image format is currently not supported');
     }
-    const currentPage = this.getPageAt(page);
+    let currentPage;
+    if (page instanceof Page) {
+      currentPage = page;
+    } else {
+      currentPage = this.getPageAt(page);
+    }
     const currentPageResources = this.getPageRessources(currentPage);
     const imageResource = currentPageResources.getValueByKey('XObject');
     if (!imageResource) {
