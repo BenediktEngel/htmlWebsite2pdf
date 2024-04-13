@@ -14,7 +14,7 @@ import {
 } from './types';
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
-import { px, pt, RGBHex, RGB, hashCode } from './utils';
+import { px, pt, RGBHex, RGB, hashCode, getColorFromCssRGBValue } from './utils';
 import Page from 'pdfObjects/IntermediateObjects/Page';
 
 export class Generator {
@@ -629,7 +629,7 @@ export class Generator {
         align = 'right';
       }
 
-      const options = { maxWidth: px.toPt(element.position.width), alignment: align, color: this.getColorFromCssRGBValue(element.styles.color) };
+      const options = { maxWidth: px.toPt(element.position.width), alignment: align, color: getColorFromCssRGBValue(element.styles.color) };
 
       // Check if the element fits on the current page, if not add a new page
       await this.enoughSpaceOnPageForElement(node, element.position.bottom, element.position.top);
@@ -873,7 +873,7 @@ export class Generator {
         },
         px.toPt(rect.width),
         px.toPt(rect.height),
-        { fillColor: this.getColorFromCssRGBValue(computedStyles.backgroundColor) },
+        { fillColor: getColorFromCssRGBValue(computedStyles.backgroundColor) },
       );
     }
   }
@@ -898,7 +898,7 @@ export class Generator {
           y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
         },
         {
-          strokeColor: this.getColorFromCssRGBValue(computedStyles.borderTopColor),
+          strokeColor: getColorFromCssRGBValue(computedStyles.borderTopColor),
           strokeWidth: px.toPt(parseInt(computedStyles.borderTopWidth.replace('px', ''))),
         },
       );
@@ -915,7 +915,7 @@ export class Generator {
           y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
         },
         {
-          strokeColor: this.getColorFromCssRGBValue(computedStyles.borderBottomColor),
+          strokeColor: getColorFromCssRGBValue(computedStyles.borderBottomColor),
           strokeWidth: px.toPt(parseInt(computedStyles.borderBottomWidth.replace('px', ''))),
         },
       );
@@ -932,7 +932,7 @@ export class Generator {
           y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
         },
         {
-          strokeColor: this.getColorFromCssRGBValue(computedStyles.borderLeftColor),
+          strokeColor: getColorFromCssRGBValue(computedStyles.borderLeftColor),
           strokeWidth: px.toPt(parseInt(computedStyles.borderLeftWidth.replace('px', ''))),
         },
       );
@@ -949,21 +949,11 @@ export class Generator {
           y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
         },
         {
-          strokeColor: this.getColorFromCssRGBValue(computedStyles.borderRightColor),
+          strokeColor: getColorFromCssRGBValue(computedStyles.borderRightColor),
           strokeWidth: px.toPt(parseInt(computedStyles.borderRightWidth.replace('px', ''))),
         },
       );
     }
-  }
-
-  /**
-   * Gets the RGB values from a CSS RGB or RGBA value
-   * @param {string} rgb The CSS RGB or RGBA value
-   * @returns {TRGB} The RGB values
-   */
-  getColorFromCssRGBValue(rgb: string) {
-    let color = rgb.replace('rgb(', '').replace('rgba(', '').replace(')', '').replace(' ', '').split(',');
-    return RGB.changeRange1({ r: parseInt(color![0]), g: parseInt(color![1]), b: parseInt(color![2]) } as TRGB);
   }
 
   /**
