@@ -9,4 +9,5 @@ export type TInternalLink = {
   height: number;
   borderColor: string | undefined;
   borderStroke: number | undefined;
+  el: HTMLElement;
 };

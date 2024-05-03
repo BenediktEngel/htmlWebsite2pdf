@@ -1,5 +1,5 @@
 export type TElement = {
-  element: HTMLElement;
+  el: HTMLElement;
   rect: DOMRect;
   styles: CSSStyleDeclaration;
   isTextNode?: boolean;

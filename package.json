@@ -7,6 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
+    "buildBundle": "npm run build; npm run bundle",
+    "buildBundleMin": "npm run buildAndBundle; npm run minify",
     "lint": "node_modules/eslint/bin/eslint.js src/**/*.ts",
     "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/bundle.js",
     "minify": "uglifyjs dist/bundle.js > dist/bundle.min.js"

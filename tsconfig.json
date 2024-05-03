@@ -10,7 +10,7 @@
     "declaration": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "lib": ["ES2016", "DOM"],
     "sourceMap": true,
