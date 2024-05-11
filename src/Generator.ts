@@ -234,12 +234,12 @@ export class Generator implements IGenerator {
    * The document of the iframe which is used to generate the PDF
    * @type {Document | undefined}
    */
-  iframeDocument: Document | undefined;
+  iframeDoc: Document | undefined;
   /**
    * The window of the iframe which is used to generate the PDF
    * @type {Window | undefined}
    */
-  iframeWindow: Window | undefined;
+  iframeWin: Window | undefined;
 
   /**
    * The constructor of the Generator
@@ -454,90 +454,23 @@ export class Generator implements IGenerator {
     // Get all fonts which are used in the stylesheets
     await this.getFontsOfWebsite();
     // Calculate the offset on the x-axis (scrollLeft is needed if window is smaller than the page and it is scrolled)
-    this.scrollLeft = this.iframeDocument.documentElement.scrollLeft || this.iframeDocument.body.scrollLeft;
+    this.scrollLeft = this.iframeDoc.documentElement.scrollLeft || this.iframeDoc.body.scrollLeft;
     this.offsetX = this.inputEl.getBoundingClientRect().x + this.scrollLeft;
     // Scroll-Offset if the page is scrolled, needed to calculate the position of the elements
-    this.scrollTop = this.iframeDocument.documentElement.scrollTop || this.iframeDocument.body.scrollTop;
+    this.scrollTop = this.iframeDoc.documentElement.scrollTop || this.iframeDoc.body.scrollTop;
     this.offsetY = this.inputEl.getBoundingClientRect().y + this.scrollTop;
-    // Go trough all elements and place them in the PDF, starting with the input element
+    // Add the first page to the PDF
     this.addPageToPdf(this.offsetY);
+    // Go trough all elements and place them in the PDF, starting with the input element
     await this.goTroughElements(this.createTElement(this.inputEl));
+
     // Add all internal links to the PDF
-    this.internalLinkingElements.forEach((link) => {
-      let result = this.elementsWithId.filter((el) => el.id === link.id.replace('#', ''));
-      if (result.length) {
-        // for now we use the first result, but we should throw an error if there are more than one
-        let linkOptions: TLinkOptions = {};
-        if (this.linkBorderColor) {
-          linkOptions.border = {};
-          linkOptions.border.color = this.linkBorderColor;
-          linkOptions.border.width = this.linkBorderStroke;
-        }
-        if (link.borderColor !== undefined) {
-          linkOptions.border = {};
-          linkOptions.border.color = RGB.changeRange1(RGBHex.toRGB(link.borderColor));
-          linkOptions.border.width = link.borderStroke || this.linkBorderStroke || 0;
-        } else if (link.borderStroke !== undefined) {
-          if (!linkOptions.border) linkOptions.border = {};
-          linkOptions.border.width = link.borderStroke;
-        }
-
-        const y1 = link.el.getBoundingClientRect().top + this.scrollTop;
-        const y2 = link.el.getBoundingClientRect().bottom + this.scrollTop;
-        let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
-        if (!pageObj) {
-          let index = this.pages.findIndex((element) => element.yEnd >= y1);
-          if (index) {
-            pageObj = this.pages[index + 1];
-          } else {
-            console.error("Skipped placing - Couldn't find the Page for the following element:", link.el);
-          }
-        }
-        let position = {
-          x: link.position.x,
-          y:
-            this.pageSize[1] -
-            +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageObj.yStart) -
-            this.margin[1] -
-            pageObj.headerOffset,
-        };
-
-        this.pdf.addInternalLink(position, link.width, link.height, pageObj.pdfPage, result[0].page, linkOptions);
-      }
-    });
+    this.addInternalLinks();
 
     // Now we add all Elements where the position in the Markup didn't fit the current Pages and all Elements with content which comes from us.
-    for (const element of this.elementsForEnd) {
-      // Find the correct Page by the position
-      const y1 = element.getBoundingClientRect().top + this.scrollTop;
-      const y2 = element.getBoundingClientRect().bottom + this.scrollTop;
-      let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
-      if (!pageObj) {
-        let index = this.pages.findIndex((element) => element.yEnd >= y1);
-        if (index) {
-          pageObj = this.pages[index + 1];
-        } else {
-          console.error("Skipped placing - Couldn't find the Page for the following element:", element);
-          continue;
-        }
-      }
-      this.offsetY = pageObj.yStart;
-      this.currentHeaderHeight = pageObj.headerOffset;
-      // set Our values if needed
-      if (element.dataset?.htmlwebsite2pdfPagenumberbyid) {
-        const id = element.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
-        const target = this.elementsWithId.filter((el) => el.id === id);
+    await this.addElementsForEnd();
 
-        if (target.length) {
-          element.innerText = `${this.pages[target[0].pageId].pageNumber}`;
-        }
-      }
-
-      // Go trough the element and place it thereby
-      await this.goTroughElements(this.createTElement(element), pageObj.pdfPage);
-    }
-    // TODO: we dont need to show the ignored elements, because we are in an iframe, but if there is an option to dont use an iframe we should show them
-    // remove values set by us from the Element
+    // we dont need to show the ignored elements, because we are in an iframe, but if there is an option to dont use an iframe we should show them
     // this.showIgnoredElements();
 
     // Save the pdf to a file
@@ -554,14 +487,14 @@ export class Generator implements IGenerator {
     iframe.style.position = 'fixed';
     iframe.style.top = '-9999px';
     iframe.style.left = '-9999px';
+    // Set the width of the iframe to the page width
+    // TODO: This should be based on the page size or a custom size
     iframe.style.width = mm.toPx(210) + 'px';
     iframe.sandbox = 'allow-same-origin';
 
     // Set the content of the iframe to the current page
     iframe.srcdoc = `${document.documentElement.outerHTML}`;
     document.body.appendChild(iframe);
-    // Set the width of the iframe to the page width
-    // TODO: This should be based on the page size or a custom size
     function waitForIFrameLoad(): Promise<void> {
       return new Promise((resolve, reject) => {
         iframe.addEventListener('load', () => {
@@ -573,10 +506,10 @@ export class Generator implements IGenerator {
     await waitForIFrameLoad();
 
     // Get the document of the iframe
-    this.iframeDocument = iframe.contentWindow.document;
-    this.iframeWindow = iframe.contentWindow;
+    this.iframeDoc = iframe.contentWindow.document;
+    this.iframeWin = iframe.contentWindow;
     // Get the input element from the iframe
-    this.inputEl = this.iframeDocument.querySelector('[data-htmlWebsite2pdf-inputEl]');
+    this.inputEl = this.iframeDoc.querySelector('[data-htmlWebsite2pdf-inputEl]');
   }
 
   /**
@@ -616,9 +549,9 @@ export class Generator implements IGenerator {
         pageHeader = child.querySelector(':scope >[data-htmlWebsite2pdf-header]');
         if (pageHeader !== null) {
           // TODO this should be a separate function
-          let header = this.iframeDocument.createElement('div');
+          let header = this.iframeDoc.createElement('div');
           header.innerHTML = pageHeader.innerHTML;
-          this.iframeDocument.body.appendChild(header);
+          this.iframeDoc.body.appendChild(header);
           this.currentHeader.push(header);
         }
       }
@@ -627,9 +560,9 @@ export class Generator implements IGenerator {
         pageFooter = child.querySelector(':scope >[data-htmlWebsite2pdf-footer]');
         if (pageFooter !== null) {
           // TODO this should be a separate function
-          let footer = this.iframeDocument.createElement('div');
+          let footer = this.iframeDoc.createElement('div');
           footer.innerHTML = pageFooter.innerHTML;
-          this.iframeDocument.body.appendChild(footer);
+          this.iframeDoc.body.appendChild(footer);
           this.currentFooter.push(footer);
         }
       }
@@ -658,11 +591,11 @@ export class Generator implements IGenerator {
 
       if (pageHeader) {
         let lastHeader = this.currentHeader.pop();
-        if (lastHeader) this.iframeDocument.body.removeChild(lastHeader);
+        if (lastHeader) this.iframeDoc.body.removeChild(lastHeader);
       }
       if (pageFooter) {
         let lastFooter = this.currentFooter.pop();
-        if (lastFooter) this.iframeDocument.body.removeChild(lastFooter);
+        if (lastFooter) this.iframeDoc.body.removeChild(lastFooter);
       }
     }
   }
@@ -670,7 +603,7 @@ export class Generator implements IGenerator {
   createTElement(el: HTMLElement): TElement {
     const isTextNode = el.nodeType === 3;
     const rect = isTextNode ? el.parentElement.getBoundingClientRect() : el.getBoundingClientRect();
-    const styles = isTextNode ? this.iframeWindow.getComputedStyle(el.parentElement) : this.iframeWindow.getComputedStyle(el);
+    const styles = isTextNode ? this.iframeWin.getComputedStyle(el.parentElement) : this.iframeWin.getComputedStyle(el);
     return { el, rect, styles, isTextNode };
   }
 
@@ -1059,7 +992,7 @@ export class Generator implements IGenerator {
    */
   async enoughSpaceOnPageForElement(element: HTMLElement | Node, bottom: number, top: number) {
     const yPos = this.currentAvailableHeight - +px.toPt(bottom + this.scrollTop - this.offsetY);
-    if (element instanceof HTMLElement && this.iframeWindow.getComputedStyle(element).display === 'none') {
+    if (element instanceof HTMLElement && this.iframeWin.getComputedStyle(element).display === 'none') {
       return;
     }
     if (element instanceof HTMLElement && this.currentAvailableHeight < px.toPt(element.getBoundingClientRect().height)) {
@@ -1092,20 +1025,20 @@ export class Generator implements IGenerator {
         node.data = node.data.replace(/[\r]/g, '').replace(/\t/g, ' ').replace(/  /g, '');
         textOfNode = node.data!;
       }
-      const range = this.iframeDocument.createRange();
+      const range = this.iframeDoc.createRange();
       range.selectNodeContents(node);
       const rects = range.getClientRects();
 
-      const computedStyle = this.iframeWindow.getComputedStyle(node.parentElement!);
+      const computedStyle = this.iframeWin.getComputedStyle(node.parentElement!);
       Array.from(rects).forEach((rect) => {
         let text = '';
         // Split text content to get only the text in the current rect
-        let tempEl = this.iframeDocument.createElement('span');
+        let tempEl = this.iframeDoc.createElement('span');
         tempEl.style.setProperty('font-style', computedStyle.fontStyle);
         tempEl.style.setProperty('font-weight', computedStyle.fontWeight);
         tempEl.style.setProperty('font-size', computedStyle.fontSize);
         tempEl.style.setProperty('font-family', computedStyle.fontFamily);
-        this.iframeDocument.body.appendChild(tempEl);
+        this.iframeDoc.body.appendChild(tempEl);
         for (let i = 1; i <= textOfNode.length; i++) {
           tempEl.textContent = textOfNode.slice(0, i);
           text = textOfNode.slice(0, i);
@@ -1150,7 +1083,7 @@ export class Generator implements IGenerator {
           let spaceCount = (text.match(/ /g) || []).length;
           wordSpacing = (rect.width - wordWidths.reduce((a, b) => a + b, 0)) / spaceCount;
         }
-        this.iframeDocument.body.removeChild(tempEl);
+        this.iframeDoc.body.removeChild(tempEl);
 
         textOfNode = textOfNode.slice(text.length);
 
@@ -1314,10 +1247,10 @@ export class Generator implements IGenerator {
     });
 
     // Add styles to hide the elements
-    const ignoreElementsStyle = this.iframeDocument.createElement('style');
+    const ignoreElementsStyle = this.iframeDoc.createElement('style');
     ignoreElementsStyle.id = 'htmlWebsite2pdf-generation-styles';
     ignoreElementsStyle.innerHTML = '.htmlWebsite2pdf-ignore { display: none !important; }';
-    this.iframeDocument.body.appendChild(ignoreElementsStyle);
+    this.iframeDoc.body.appendChild(ignoreElementsStyle);
   }
 
   /**
@@ -1327,16 +1260,100 @@ export class Generator implements IGenerator {
    */
   showIgnoredElements(): void {
     // remove the hiding class from all elements
-    this.iframeDocument.querySelectorAll('.htmlWebsite2pdf-ignore').forEach((el) => {
+    this.iframeDoc.querySelectorAll('.htmlWebsite2pdf-ignore').forEach((el) => {
       el.classList.remove('htmlWebsite2pdf-ignore');
     });
     // remove the style tag which added the styles for the hiding class
-    const ignoreElementsStyle = this.iframeDocument.getElementById('htmlWebsite2pdf-generation-styles');
+    const ignoreElementsStyle = this.iframeDoc.getElementById('htmlWebsite2pdf-generation-styles');
     if (ignoreElementsStyle) {
       ignoreElementsStyle.remove();
     }
   }
 
+  /**
+   * Add the internal links to the PDF
+   * @returns {void}
+   */
+  addInternalLinks() {
+    this.internalLinkingElements.forEach((link) => {
+      let result = this.elementsWithId.filter((el) => el.id === link.id.replace('#', ''));
+      if (result.length) {
+        // for now we use the first result, but we should throw an error if there are more than one
+        let linkOptions: TLinkOptions = {};
+        if (this.linkBorderColor) {
+          linkOptions.border = {};
+          linkOptions.border.color = this.linkBorderColor;
+          linkOptions.border.width = this.linkBorderStroke;
+        }
+        if (link.borderColor !== undefined) {
+          linkOptions.border = {};
+          linkOptions.border.color = RGB.changeRange1(RGBHex.toRGB(link.borderColor));
+          linkOptions.border.width = link.borderStroke || this.linkBorderStroke || 0;
+        } else if (link.borderStroke !== undefined) {
+          if (!linkOptions.border) linkOptions.border = {};
+          linkOptions.border.width = link.borderStroke;
+        }
+
+        const y1 = link.el.getBoundingClientRect().top + this.scrollTop;
+        const y2 = link.el.getBoundingClientRect().bottom + this.scrollTop;
+        let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
+        if (!pageObj) {
+          let index = this.pages.findIndex((element) => element.yEnd >= y1);
+          if (index) {
+            pageObj = this.pages[index + 1];
+          } else {
+            console.error("Skipped placing - Couldn't find the Page for the following element:", link.el);
+          }
+        }
+        let position = {
+          x: link.position.x,
+          y:
+            this.pageSize[1] -
+            +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageObj.yStart) -
+            this.margin[1] -
+            pageObj.headerOffset,
+        };
+
+        this.pdf.addInternalLink(position, link.width, link.height, pageObj.pdfPage, result[0].page, linkOptions);
+      }
+    });
+  }
+
+  /**
+   * Adds all elements which we skipped because they didn't fit on the current page
+   * @returns {void}
+   */
+  async addElementsForEnd() {
+    for (const element of this.elementsForEnd) {
+      // Find the correct Page by the position
+      const y1 = element.getBoundingClientRect().top + this.scrollTop;
+      const y2 = element.getBoundingClientRect().bottom + this.scrollTop;
+      let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
+      if (!pageObj) {
+        let index = this.pages.findIndex((element) => element.yEnd >= y1);
+        if (index) {
+          pageObj = this.pages[index + 1];
+        } else {
+          console.error("Skipped placing - Couldn't find the Page for the following element:", element);
+          continue;
+        }
+      }
+      this.offsetY = pageObj.yStart;
+      this.currentHeaderHeight = pageObj.headerOffset;
+      // set Our values if needed
+      if (element.dataset?.htmlwebsite2pdfPagenumberbyid) {
+        const id = element.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
+        const target = this.elementsWithId.filter((el) => el.id === id);
+
+        if (target.length) {
+          element.innerText = `${this.pages[target[0].pageId].pageNumber}`;
+        }
+      }
+
+      // Go trough the element and place it thereby
+      await this.goTroughElements(this.createTElement(element), pageObj.pdfPage);
+    }
+  }
   /**
    * Search for a font which is used in the website by its font-family, weight and style and add it if it is not already added to the pdf
    * @param {string} fontFamily The font-family of the font
