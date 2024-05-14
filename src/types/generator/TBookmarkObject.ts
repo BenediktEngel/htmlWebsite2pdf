@@ -1,1 +1,1 @@
-export type TBookmarkObject = { type: number; children: Array<TBookmarkObject> };
+export type TBookmarkObject = { level: number; children: Array<TBookmarkObject> };

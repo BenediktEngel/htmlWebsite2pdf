@@ -73,10 +73,10 @@ export class PDFDocument implements IPDFDocument {
   catalog: CatalagDictionary | undefined;
 
   /**
-   * The root object of the PDF document.
+   * The pageTree object of the PDF document.
    * @type {PageTree}
    */
-  root: PageTree | undefined;
+  pageTree: PageTree | undefined;
 
   /**
    * The trailer of the PDF document.
@@ -111,7 +111,7 @@ export class PDFDocument implements IPDFDocument {
     this.keywords = options.keywords || '';
     this.author = options.author || '';
     this.createCatalog();
-    this.createRoot();
+    this.createPageTree();
     this.createInfo();
     if (options.pageLayout && options.pageLayout !== PdfPageLayout.SINGLE_PAGE)
       this.catalog?.setValueByKey('PageLayout', NameObject.getName(this, options.pageLayout));
@@ -189,29 +189,29 @@ export class PDFDocument implements IPDFDocument {
    * @returns {void}
    */
   addPage(pageDimensions: [number, number] = PageDimensions.A4): void {
-    if (!this.root) this.createRoot();
+    if (!this.pageTree) this.createPageTree();
 
     const newPage = new Page(
       this,
       new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>([
         [NameObject.getName(this, 'MediaBox'), new Rectangle(this, 0, 0, pageDimensions[0], pageDimensions[1])],
-        [NameObject.getName(this, 'Parent'), this.root as DictionaryObject],
+        [NameObject.getName(this, 'Parent'), this.pageTree as DictionaryObject],
         [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Page')],
         [NameObject.getName(this, 'Resources'), new DictionaryObject(this)],
       ]),
       true,
     );
-    const rootKids = this.root?.getValueByKey('Kids');
-    if (rootKids && rootKids instanceof ArrayObject) {
-      rootKids.push(newPage);
+    const pageTreeKids = this.pageTree?.getValueByKey('Kids');
+    if (pageTreeKids && pageTreeKids instanceof ArrayObject) {
+      pageTreeKids.push(newPage);
     } else {
-      this.root?.setValueByKey('Kids', new ArrayObject(this, [newPage]));
+      this.pageTree?.setValueByKey('Kids', new ArrayObject(this, [newPage]));
     }
-    const count = this.root?.getValueByKey('Count');
+    const count = this.pageTree?.getValueByKey('Count');
     if (count && count instanceof NumericObject) {
       count.value += 1;
     } else {
-      this.root?.setValueByKey('Count', new NumericObject(this, 1));
+      this.pageTree?.setValueByKey('Count', new NumericObject(this, 1));
     }
   }
 
@@ -287,15 +287,15 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Create the root object of the PDF document.
+   * Create the pageTree object of the PDF document.
    * @returns {void}
-   * @throws {Error} If the root object already exists.
+   * @throws {Error} If the pageTree object already exists.
    */
-  createRoot(): void {
-    if (this.root) {
-      throw new Error('Root already exists');
+  createPageTree(): void {
+    if (this.pageTree) {
+      throw new Error('pageTree already exists');
     }
-    this.root = new PageTree(
+    this.pageTree = new PageTree(
       this,
       new Map<
         NameObject,
@@ -310,7 +310,7 @@ export class PDFDocument implements IPDFDocument {
     if (!this.catalog) {
       this.createCatalog();
     }
-    this.catalog?.setValueByKey('Pages', this.root);
+    this.catalog?.setValueByKey('Pages', this.pageTree);
   }
 
   /**
@@ -331,25 +331,33 @@ export class PDFDocument implements IPDFDocument {
    * @param {string} text The text to add
    * @param {string} fontName The name of the font to use, must be added before with addFont
    * @param {number} fontSize The size of the font
-   * @param {number | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
+   * @param {number | Page | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
    * @returns {void}
    * @overload
    * @param {TPosition} pos The position of the text in pt.
    * @param {string} text The text to add
    * @param {string} fontName The name of the font to use, must be added before with addFont
    * @param {number} fontSize The size of the font
-   * @param {TTextOptions | number | undefined} [pageOrOptions=undefined] A page number to add the text to or additional options for the text, like the fill-color, stroke-color and stroke-width. If no options are provided, the text will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @param {TTextOptions} [options=undefined] A page number to add the text to or additional options for the text, like the fill-color, stroke-color and stroke-width. If no options are provided, the text will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
+   * @param {number | Page | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
+   * @returns {void}
+   * @overload
+   * @param {TPosition} pos The position of the text in pt.
+   * @param {string} text The text to add
+   * @param {string} fontName The name of the font to use, must be added before with addFont
+   * @param {number} fontSize The size of the font
+   * @param {TTextOptions | number | Page | undefined} [pageOrOptions=undefined] A page number to add the text to or additional options for the text, like the fill-color, stroke-color and stroke-width. If no options are provided, the text will be filled with a black color and have no stroke. If no stroke-color is provided, there will be no stroke.
    * @param {number | Page | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
    * @returns {void}
    */
-  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number): void;
-  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, options?: TTextOptions | undefined): void;
+  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number | Page): void;
+  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, options: TTextOptions, page?: number | Page): void;
   addTextToCurrentPage(
     pos: TPosition,
     text: string,
     fontName: string,
     fontSize: number,
-    optionsOrPage: TTextOptions | number | undefined,
+    optionsOrPage?: TTextOptions | number | Page | undefined,
     page?: number | Page | undefined,
   ): void {
     let pageId;
@@ -422,16 +430,19 @@ export class PDFDocument implements IPDFDocument {
     font.fontObj.layout(text).glyphs.forEach((glyph: any) => {
       hexString += toHex(glyph.id);
     });
-    let colorString = ''
-    if(options.color) {
-       colorString = `${options.color.r} ${options.color.g} ${options.color.b} rg`
+    let colorString = '';
+    if (options.color) {
+      colorString = `${options.color.r} ${options.color.g} ${options.color.b} rg`;
     }
-    let wordspaceString = ''
-    if(options.wordspace) {
-       wordspaceString = `${options.wordspace} Tw`
-        }
-            // Add content to contents
-    this.appendToPageContents(currentPage, Buffer.from(`BT /${fontName} ${fontSize} Tf ${colorString} ${wordspaceString} ${newX} ${pos.y} Td <${hexString}> Tj ET`));
+    let wordspaceString = '';
+    if (options.wordspace) {
+      wordspaceString = `${options.wordspace} Tw`;
+    }
+    // Add content to contents
+    this.appendToPageContents(
+      currentPage,
+      Buffer.from(`BT /${fontName} ${fontSize} Tf ${colorString} ${wordspaceString} ${newX} ${pos.y} Td <${hexString}> Tj ET`),
+    );
   }
 
   /**
@@ -639,7 +650,7 @@ export class PDFDocument implements IPDFDocument {
     if (!this.bookmarkStructure.length) return;
     const outline = new DictionaryObject(this, new Map(), true);
     this.bookmarkStructure.forEach((bookmark) => {
-      this.createOutlineItem(this, bookmark, outline);
+      this.createOutlineItem(bookmark, outline);
     });
     outline.setValueByKey('First', this.indirectObjects.get(this.bookmarkStructure[0].objectId!)?.obj as DictionaryObject);
     outline.setValueByKey(
@@ -663,24 +674,23 @@ export class PDFDocument implements IPDFDocument {
 
   /**
    * Create an outline item for the document outline.
-   * @param {PDFDocument} pdf - The PDF document.
    * @param {TBookmark} bookmark - The bookmark to create the outline item for.
    * @param {DictionaryObject} parent - The parent of the outline item.
    * @returns {void}
    */
-  private createOutlineItem(pdf: PDFDocument, bookmark: TBookmark, parent: DictionaryObject): void {
-    const outlineItem = new DictionaryObject(pdf, new Map(), true);
+  private createOutlineItem(bookmark: TBookmark, parent: DictionaryObject): void {
+    const outlineItem = new DictionaryObject(this, new Map(), true);
     bookmark.objectId = outlineItem.id;
-    outlineItem.setValueByKey('Title', new StringObject(pdf, bookmark.title));
+    outlineItem.setValueByKey('Title', new StringObject(this, bookmark.title));
     outlineItem.setValueByKey('Parent', parent);
     outlineItem.setValueByKey(
       'Dest',
       // TODO: Add support for other zooms instead of /fit, maybe change to: /XYZ null y-pos null
-      new ArrayObject(pdf, [this.indirectObjects.get(bookmark.pageObjectId!)?.obj as Page, NameObject.getName(pdf, 'Fit')]),
+      new ArrayObject(this, [this.indirectObjects.get(bookmark.pageObjectId!)?.obj as Page, NameObject.getName(this, 'Fit')]),
     );
     if (bookmark.children.length) {
       bookmark.children.forEach((child, index) => {
-        this.createOutlineItem(pdf, child, outlineItem);
+        this.createOutlineItem(child, outlineItem);
         if (index > 0) {
           // Set Prev to the current object
           const obj = this.indirectObjects.get(child.objectId!)?.obj as DictionaryObject;
@@ -797,7 +807,7 @@ export class PDFDocument implements IPDFDocument {
    * Get the current page of the PDF document.
    * @returns {Page} The current page of the PDF document.
    * @throws {Error} If the current page doesn't exist or is not a Page.
-   * @throws {Error} If the root object doesn't exist or is not a PageTree.
+   * @throws {Error} If the pageTree object doesn't exist or is not a PageTree.
    */
   getCurrentPage(): Page {
     return this.getPageAt();
@@ -808,14 +818,14 @@ export class PDFDocument implements IPDFDocument {
    * @param {number | undefined} index The index of the page, starting at 0, if no index is provided, the current (last) page will be returned.
    * @returns {Page} The page of the PDF document.
    * @throws {Error} If the page doesn't exist or is not a Page.
-   * @throws {Error} If the root object doesn't exist or is not a PageTree.
+   * @throws {Error} If the pageTree object doesn't exist or is not a PageTree.
    */
   getPageAt(index: number | undefined = undefined): Page {
-    const rootKids = this.root?.getValueByKey('Kids');
-    if (!rootKids || !(rootKids instanceof ArrayObject)) {
-      throw new Error('No pages in root or root is not a PageTree');
+    const pageTreeKids = this.pageTree?.getValueByKey('Kids');
+    if (!pageTreeKids || !(pageTreeKids instanceof ArrayObject)) {
+      throw new Error('No pages in pageTree or pageTree is not a PageTree');
     }
-    const page = rootKids.getAt(index === undefined ? rootKids.length - 1 : index);
+    const page = pageTreeKids.getAt(index === undefined ? pageTreeKids.length - 1 : index);
     if (!page || !(page instanceof Page)) {
       throw new Error("Current page doesn't exist or is not a Page");
     }

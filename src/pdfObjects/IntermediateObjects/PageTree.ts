@@ -28,7 +28,7 @@ export class PageTree extends DocumentStructureDictionary implements IDocumentSt
     { name: 'Type', type: BaseObjects.NAME },
     { name: 'Kids', type: BaseObjects.ARRAY },
     { name: 'Count', type: BaseObjects.NUMERIC },
-    { name: 'Parent', type: BaseObjects.DICTIONARY, exception: () => this.pdfDocument.root !== this },
+    { name: 'Parent', type: BaseObjects.DICTIONARY, exception: () => this.pdfDocument.pageTree !== this },
   ];
 
   /**

@@ -12,7 +12,7 @@ export interface IPDFDocument {
   author: string;
   crossReferenceTable: ICrossReferenceTable;
   catalog: IDocumentStructureDictionary | undefined;
-  root: IDocumentStructureDictionary | undefined;
+  pageTree: IDocumentStructureDictionary | undefined;
   trailer: IDictionaryObject;
   indirectObjects: Map<number, IIndirectObject>;
 }
