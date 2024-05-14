@@ -18,6 +18,12 @@ import { PageDimensions } from './constants';
 import { px, pt, RGBHex, RGB, hashCode, getColorFromCssRGBValue, mm } from './utils';
 import Page from 'pdfObjects/IntermediateObjects/Page';
 
+declare global {
+  interface Window {
+    MSStream: any;
+  }
+}
+
 export class Generator implements IGenerator {
   /**
    * The title which should be used for the PDF
@@ -120,6 +126,16 @@ export class Generator implements IGenerator {
       displayDocTitle: true,
     },
   };
+  /**
+   * The width of the iFrame which is used to generate the PDF
+   * @type {number}
+   */
+  iFrameWidth = pt.toPx(PageDimensions.A4[0]);
+  /**
+   * Option if the first page should be added to the PDF (only needed if the first page is not added by the first element)
+   * @type {Boolean}
+   */
+  addFirstPage = true;
   /**
    * The default color of the border of the internal linking elements
    * @type {TRGB|undefined}
@@ -240,7 +256,6 @@ export class Generator implements IGenerator {
    * @type {Window | undefined}
    */
   iframeWin: Window | undefined;
-
   /**
    * The constructor of the Generator
    * @param {TGenerateOptions} options The options which should be used for generating the PDF
@@ -420,6 +435,22 @@ export class Generator implements IGenerator {
         }
       }
     }
+    if (options.iFrameWidth) {
+      if (typeof options.iFrameWidth === 'number') {
+        this.iFrameWidth = options.iFrameWidth;
+      } else {
+        throw new Error('iFrameWidth must be a number');
+      }
+    } else {
+      this.iFrameWidth = pt.toPx(this.pageSize[0]);
+    }
+    if (options.addFirstPage !== undefined) {
+      if (typeof options.addFirstPage === 'boolean') {
+        this.addFirstPage = options.addFirstPage;
+      } else {
+        throw new Error('AddFirstPage must be a boolean');
+      }
+    }
 
     // Calculate the available height of the page for placing the content
     this.availableDefaultPageHeight = this.pageSize[1] - px.toPt(this.margin[0] + this.margin[2]);
@@ -460,7 +491,7 @@ export class Generator implements IGenerator {
     this.scrollTop = this.iframeDoc.documentElement.scrollTop || this.iframeDoc.body.scrollTop;
     this.offsetY = this.inputEl.getBoundingClientRect().y + this.scrollTop;
     // Add the first page to the PDF
-    this.addPageToPdf(this.offsetY);
+    if (this.addFirstPage) this.addPageToPdf(this.offsetY);
     // Go trough all elements and place them in the PDF, starting with the input element
     await this.goTroughElements(this.createTElement(this.inputEl));
 
@@ -488,9 +519,8 @@ export class Generator implements IGenerator {
     iframe.style.top = '-9999px';
     iframe.style.left = '-9999px';
     // Set the width of the iframe to the page width
-    // TODO: This should be based on the page size or a custom size
-    iframe.style.width = mm.toPx(210) + 'px';
-    iframe.sandbox = 'allow-same-origin';
+    iframe.style.width = `${this.iFrameWidth}px`;
+    iframe.setAttribute('sandbox', 'allow-same-origin');
 
     // Set the content of the iframe to the current page
     iframe.srcdoc = `${document.documentElement.outerHTML}`;
@@ -618,7 +648,7 @@ export class Generator implements IGenerator {
     for (const element of textNodes) {
       // Get the font of the node, and add it to the pdf if it is not already added
       const fontOfNode = element.styles.fontFamily.split(',')[0].replace(/['"]+/g, '');
-      const usedFont = await this.getUsedFont(fontOfNode, element.styles.fontWeight, element.styles.fontStyle);
+      const usedFont = await this.getUsedFont(fontOfNode, parseInt(element.styles.fontWeight), element.styles.fontStyle);
 
       const options = { maxWidth: px.toPt(element.position.width), color: getColorFromCssRGBValue(element.styles.color) };
 
@@ -771,7 +801,6 @@ export class Generator implements IGenerator {
       case 'h5':
       case 'h6':
         if (this.outlineForHeadings && element.el.dataset.htmlwebsite2pdfNoOutline === undefined) {
-          // TODO: We should check the position and add a new page if the heading is not on the current page
           await this.enoughSpaceOnPageForElement(element.el, element.rect.bottom, element.rect.top);
           const positionResult = this.findBookmarkPosition(this.bookmarks, parseInt(element.el.tagName[1]));
           positionResult.positions.pop();
@@ -840,9 +869,10 @@ export class Generator implements IGenerator {
     }
     const linkOptions: TLinkOptions = {};
     if (borderColor) {
-      linkOptions.border = {};
-      linkOptions.border.color = borderColor;
-      linkOptions.border.width = borderStroke;
+      linkOptions.border = {
+        color: borderColor,
+        width: borderStroke,
+      };
     }
     this.pdf.addExternalLink(
       {
@@ -973,8 +1003,8 @@ export class Generator implements IGenerator {
     level: number,
     positionArray: Array<number> = [],
   ): { bookmarks: Array<TBookmarkObject>; positions: Array<number> } {
-    if (!bookmarks.length || bookmarks[bookmarks.length - 1].type === level) {
-      bookmarks.push({ type: level, children: [] });
+    if (!bookmarks.length || bookmarks[bookmarks.length - 1].level === level) {
+      bookmarks.push({ level, children: [] });
       return { bookmarks, positions: [...positionArray, bookmarks.length] };
     } else {
       let result = this.findBookmarkPosition(bookmarks[bookmarks.length - 1].children, level, [...positionArray, bookmarks.length]);
@@ -1008,11 +1038,11 @@ export class Generator implements IGenerator {
 
   /**
    * Gets all text lines  of a textNode and returns them as an array which contains the text, the styles and the position of the textline
-   * @param {Node} element The textNode which should be used to get the text lines
+   * @param {Text} element The textNode which should be used to get the text lines
    * @returns {Array<TTextNodeData>} The array of the text lines
    */
 
-  getTextLinesOfNode(element: Node): Array<TTextNodeData> {
+  getTextLinesOfNode(element: Text): Array<TTextNodeData> {
     const textNodes = this.getTextNodes(element);
     const textWithStyles: Array<TTextNodeData> = [];
     textNodes.forEach((node) => {
@@ -1102,22 +1132,16 @@ export class Generator implements IGenerator {
 
   /**
    * Gets all text nodes of an element
-   * @param {Node} element The element which should be used to get the text nodes
+   * @param {Text} element The element which should be used to get the text nodes
    * @returns {Array<Text>} The array of text nodes
    */
-  getTextNodes(element: Node) {
-    const textNodes: Array<Node> = [];
+  getTextNodes(element: Text) {
+    const textNodes: Array<Text> = [];
 
     if (element.nodeType === Node.TEXT_NODE) {
       if (element.data.replace(/[\n\t\r]/g, '').replace(/  /g, '').length) {
         textNodes.push(element);
       }
-    } else {
-      element.childNodes.forEach((child) => {
-        if (element.data.replace(/[\n\t\r]/g, '').replace(/  /g, '').length) {
-          textNodes.push(...this.getTextNodes(child));
-        }
-      });
     }
     return textNodes;
   }
@@ -1181,54 +1205,58 @@ export class Generator implements IGenerator {
   async getFontsOfWebsite(): Promise<void> {
     // FEATURE: Here we could also add support for local fonts which are not loaded from a stylesheet, via local font api
     // Iterate through all stylesheets
-    for (const styleSheet of Array.from(document.styleSheets)) {
+    const filteredStylesheets = Array.from(document.styleSheets).filter((styleSheet) => styleSheet.href && styleSheet.cssRules);
+    for (const styleSheet of filteredStylesheets) {
       // Check if the stylesheet is loaded
-      if (styleSheet.href && styleSheet.cssRules) {
-        // Iterate through all rules of the stylesheet
-        for (const rule of Array.from(styleSheet.cssRules)) {
-          if (rule instanceof CSSFontFaceRule) {
-            const srcs: Array<TFontSrc> = [];
-            rule.style
-              .getPropertyValue('src')
-              .split(',')
-              .forEach((src) => {
-                const urlMatch = src.match(/url\(["']?([^"']+)["']?\)/);
-                let url = urlMatch ? urlMatch[1] : '';
-                if (url && url.startsWith('.')) {
-                  url = styleSheet.href!.replace(/\/[^\/]+$/, '') + '/' + url;
-                }
-
-                const formatMatch = src.match(/format\(["']?([^"']+)["']?\)/);
-                const format = formatMatch ? formatMatch[1] : '';
-                srcs.push({
-                  url,
-                  format,
-                });
-              });
-            let fontWeight = 400;
-            switch (rule.style.getPropertyValue('font-weight')) {
-              case 'normal':
-                fontWeight = 400;
-                break;
-              case 'bold':
-                fontWeight = 700;
-                break;
-              default:
-                fontWeight = parseInt(rule.style.getPropertyValue('font-weight'));
-                break;
+      // Iterate through all rules of the stylesheet
+      const filteredRules = Array.from(styleSheet.cssRules).filter((rule) => rule instanceof CSSFontFaceRule) as Array<CSSFontFaceRule>;
+      for (const rule of filteredRules) {
+        const font = {
+          src: [],
+          weight: 400,
+          inPDF: false,
+          family: undefined,
+          stretch: undefined,
+          style: undefined,
+          name: undefined,
+        };
+        rule.style
+          .getPropertyValue('src')
+          .split(',')
+          .forEach((src) => {
+            const urlMatch = src.match(/url\(["']?([^"']+)["']?\)/);
+            let url = urlMatch ? urlMatch[1] : '';
+            if (url && url.startsWith('.')) {
+              url = styleSheet.href!.replace(/\/[^\/]+$/, '') + '/' + url;
             }
-            // Add the font to the fontsOfWebsite array
-            this.fontsOfWebsite.push({
-              fontFamily: rule.style.getPropertyValue('font-family').replace(/['"]+/g, ''),
-              fontStyle: rule.style.getPropertyValue('font-style'),
-              fontWeight: fontWeight,
-              fontStretch: rule.style.getPropertyValue('font-stretch'),
-              src: srcs,
+
+            const formatMatch = src.match(/format\(["']?([^"']+)["']?\)/);
+            const format = formatMatch ? formatMatch[1] : '';
+            font.src.push({
+              url,
+              format,
             });
-          }
+          });
+        switch (rule.style.getPropertyValue('font-weight')) {
+          case 'normal':
+            font.weight = 400;
+            break;
+          case 'bold':
+            font.weight = 700;
+            break;
+          default:
+            font.weight = parseInt(rule.style.getPropertyValue('font-weight'));
+            break;
         }
+        font.family = rule.style.getPropertyValue('font-family').replace(/['"]+/g, '');
+        font.style = rule.style.getPropertyValue('font-style');
+        font.stretch = rule.style.getPropertyValue('font-stretch');
+        font.name = `${font.family}-${font.weight}-${font.style}`.replace(/ /g, '');
+        // Add the font to the fontsOfWebsite array
+        this.fontsOfWebsite.push(font);
       }
     }
+    console.log(this.fontsOfWebsite);
   }
 
   /**
@@ -1275,48 +1303,58 @@ export class Generator implements IGenerator {
    * @returns {void}
    */
   addInternalLinks() {
-    this.internalLinkingElements.forEach((link) => {
+    for (const link of this.internalLinkingElements) {
       let result = this.elementsWithId.filter((el) => el.id === link.id.replace('#', ''));
       if (result.length) {
         // for now we use the first result, but we should throw an error if there are more than one
         let linkOptions: TLinkOptions = {};
         if (this.linkBorderColor) {
-          linkOptions.border = {};
-          linkOptions.border.color = this.linkBorderColor;
-          linkOptions.border.width = this.linkBorderStroke;
+          linkOptions.border = {
+            color: this.linkBorderColor,
+            width: this.linkBorderStroke,
+          };
         }
         if (link.borderColor !== undefined) {
-          linkOptions.border = {};
-          linkOptions.border.color = RGB.changeRange1(RGBHex.toRGB(link.borderColor));
-          linkOptions.border.width = link.borderStroke || this.linkBorderStroke || 0;
-        } else if (link.borderStroke !== undefined) {
-          if (!linkOptions.border) linkOptions.border = {};
-          linkOptions.border.width = link.borderStroke;
+          linkOptions.border = {
+            color: RGB.changeRange1(RGBHex.toRGB(link.borderColor)),
+            width: link.borderStroke || this.linkBorderStroke || 0,
+          };
         }
 
-        const y1 = link.el.getBoundingClientRect().top + this.scrollTop;
-        const y2 = link.el.getBoundingClientRect().bottom + this.scrollTop;
-        let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
-        if (!pageObj) {
-          let index = this.pages.findIndex((element) => element.yEnd >= y1);
-          if (index) {
-            pageObj = this.pages[index + 1];
-          } else {
-            console.error("Skipped placing - Couldn't find the Page for the following element:", link.el);
-          }
+        const pageResult = this.getPageByPosition(link.el.getBoundingClientRect().top + this.scrollTop, link.el.getBoundingClientRect().bottom + this.scrollTop);
+        if(pageResult === undefined) {
+          console.error("Skipped placing - Couldn't find the Page for the following element:", link.el);
+          continue;
         }
         let position = {
           x: link.position.x,
           y:
             this.pageSize[1] -
-            +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageObj.yStart) -
+            +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageResult.yStart) -
             this.margin[1] -
-            pageObj.headerOffset,
+            pageResult.headerOffset,
         };
 
-        this.pdf.addInternalLink(position, link.width, link.height, pageObj.pdfPage, result[0].page, linkOptions);
+        this.pdf.addInternalLink(position, link.width, link.height, pageResult.pdfPage, result[0].page, linkOptions);
       }
-    });
+    };
+  }
+
+  /**
+   * Get the page object by the position of the top and bottom of an element
+   * @param {number} top The top position of the element
+   * @param {number} bottom The bottom position of the element
+   * @returns {TPageObject|undefined} The page object of the element or undefined if it couldn't be found
+   */
+  getPageByPosition(top: number, bottom): TPageObject | undefined {
+    let pageObj = this.pages.find((element) => element.yStart <= top && element.yStart <= bottom && element.yEnd >= top && element.yEnd >= bottom);
+    if (!pageObj) {
+      const index = this.pages.findIndex((element) => element.yEnd >= top);
+      if (index) {
+        pageObj = this.pages[index + 1];
+      }
+    }
+    return pageObj;
   }
 
   /**
@@ -1325,21 +1363,13 @@ export class Generator implements IGenerator {
    */
   async addElementsForEnd() {
     for (const element of this.elementsForEnd) {
-      // Find the correct Page by the position
-      const y1 = element.getBoundingClientRect().top + this.scrollTop;
-      const y2 = element.getBoundingClientRect().bottom + this.scrollTop;
-      let pageObj = this.pages.find((element) => element.yStart <= y1 && element.yStart <= y2 && element.yEnd >= y1 && element.yEnd >= y2);
-      if (!pageObj) {
-        let index = this.pages.findIndex((element) => element.yEnd >= y1);
-        if (index) {
-          pageObj = this.pages[index + 1];
-        } else {
-          console.error("Skipped placing - Couldn't find the Page for the following element:", element);
-          continue;
-        }
+      const pageResult = this.getPageByPosition(element.getBoundingClientRect().top + this.scrollTop, element.getBoundingClientRect().bottom + this.scrollTop);
+      if(pageResult === undefined) {
+        console.error("Skipped placing - Couldn't find the Page for the following element:", element);
+        continue;
       }
-      this.offsetY = pageObj.yStart;
-      this.currentHeaderHeight = pageObj.headerOffset;
+      this.offsetY = pageResult.yStart;
+      this.currentHeaderHeight = pageResult.headerOffset;
       // set Our values if needed
       if (element.dataset?.htmlwebsite2pdfPagenumberbyid) {
         const id = element.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
@@ -1351,65 +1381,43 @@ export class Generator implements IGenerator {
       }
 
       // Go trough the element and place it thereby
-      await this.goTroughElements(this.createTElement(element), pageObj.pdfPage);
+      await this.goTroughElements(this.createTElement(element), pageResult.pdfPage);
     }
   }
+
   /**
    * Search for a font which is used in the website by its font-family, weight and style and add it if it is not already added to the pdf
    * @param {string} fontFamily The font-family of the font
    * @param {number} fontWeight The font-weight of the font
    * @param {string} fontStyle The font-style of the font
-   * @returns {Promise<{ fontFamily: string; weight: number; style: string; name: string }>} The fontobject of the used font
+   * @returns {Promise<TFontInfo>} The fontobject of the used font
    * @private
    */
-  async getUsedFont(
-    fontFamily: string,
-    fontWeight: number | string,
-    fontStyle: string,
-  ): Promise<{ fontFamily: string; weight: number; style: string; name: string }> {
+  async getUsedFont(fontFamily: string, fontWeight: number, fontStyle: string): Promise<TFontInfo> {
     return new Promise(async (resolve, reject) => {
       // Find the used font in the fontsOfWebsite array
       const foundFontOfWebsite = this.fontsOfWebsite
-        .filter((font) => font.fontFamily === fontFamily && font.fontStyle === fontStyle)
-        .sort((a, b) => a.fontWeight - b.fontWeight)
-        .filter((font) => font.fontWeight >= fontWeight)[0];
+        .filter((font) => font.family === fontFamily && font.style === fontStyle)
+        .sort((a, b) => a.weight - b.weight)
+        .filter((font) => font.weight >= fontWeight)[0];
       if (!foundFontOfWebsite) {
         // TODO: Add fallback if we don't find a font, maybe caused by a higher font weight than available
         reject(new Error(`Font ${fontFamily} with weight ${fontWeight} and style ${fontStyle} not found`));
       }
       // Check if the font is already added to the pdf
-      if (
-        !this.fontsUsedInPDF.find(
-          (font) =>
-            font.fontFamily === foundFontOfWebsite.fontFamily &&
-            font.weight === foundFontOfWebsite.fontWeight &&
-            font.style === foundFontOfWebsite.fontStyle,
-        )
-      ) {
+      if (!foundFontOfWebsite.inPDF) {
         // TODO: Check if we have a true type font
         let fontSrc = foundFontOfWebsite.src.find((el) => el.format == 'truetype')?.url;
         // Load the font from the url
         await fetch(fontSrc!)
           .then((res) => res.arrayBuffer())
           .then((font) => {
-            // Create a name for the font
-            const name = `${foundFontOfWebsite.fontFamily}-${foundFontOfWebsite.fontWeight}-${foundFontOfWebsite.fontStyle}`.replace(/ /g, '');
+            foundFontOfWebsite.inPDF = true;
             // Add the font to the pdf
-            this.pdf.addFont(font as Buffer, name);
-            // Add the font to the fonts array
-            this.fontsUsedInPDF.push({
-              fontFamily: foundFontOfWebsite.fontFamily,
-              weight: foundFontOfWebsite.fontWeight,
-              style: foundFontOfWebsite.fontStyle,
-              name,
-            });
+            this.pdf.addFont(font as Buffer, foundFontOfWebsite.name);
           });
       }
-      resolve(
-        this.fontsUsedInPDF.find(
-          (font) => font.fontFamily === fontFamily && font.weight === foundFontOfWebsite.fontWeight && font.style === fontStyle,
-        )!,
-      );
+      resolve(foundFontOfWebsite);
     });
   }
 }

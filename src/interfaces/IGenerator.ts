@@ -82,5 +82,5 @@ export interface IGenerator {
     fontFamily: string,
     fontWeight: number | string,
     fontStyle: string,
-  ): Promise<{ fontFamily: string; weight: number; style: string; name: string }>; // TODO: Should be type
+  ): Promise<TFontInfo>;
 }
