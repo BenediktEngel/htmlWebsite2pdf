@@ -235,7 +235,7 @@ export class Generator implements IGenerator {
    * Array of elements which are not on the current page and should be placed at the end
    * @type {Array<HTMLElement>}
    */
-  elementsForEnd: Array<HTMLElement> = [];
+  elementsForEnd: Array<TElement> = [];
   /**
    * Array of internal linking elements which should be added to the PDF at the end
    * @type {Array<TInternalLink>}
@@ -483,7 +483,7 @@ export class Generator implements IGenerator {
     // Hide all elements which should be ignored
     this.hideIgnoredElements();
     // Get all fonts which are used in the stylesheets
-    await this.getFontsOfWebsite();
+    this.getFontsOfWebsite();
     // Calculate the offset on the x-axis (scrollLeft is needed if window is smaller than the page and it is scrolled)
     this.scrollLeft = this.iframeDoc.documentElement.scrollLeft || this.iframeDoc.body.scrollLeft;
     this.offsetX = this.inputEl.getBoundingClientRect().x + this.scrollLeft;
@@ -500,12 +500,15 @@ export class Generator implements IGenerator {
 
     // Now we add all Elements where the position in the Markup didn't fit the current Pages and all Elements with content which comes from us.
     await this.addElementsForEnd();
+    // Remove the iframe from the document
+    document.body.removeChild(document.querySelector('[data-html-website2pdf-iframe="true"]') as HTMLElement);
 
     // we dont need to show the ignored elements, because we are in an iframe, but if there is an option to dont use an iframe we should show them
     // this.showIgnoredElements();
 
     // Save the pdf to a file
     this.downloadPdf();
+
     console.warn('Time needed for Generation:', (new Date().getTime() - this.startTime.getTime()) * 0.001, 's');
   }
 
@@ -524,6 +527,7 @@ export class Generator implements IGenerator {
 
     // Set the content of the iframe to the current page
     iframe.srcdoc = `${document.documentElement.outerHTML}`;
+    iframe.dataset.htmlWebsite2pdfIframe = 'true';
     document.body.appendChild(iframe);
     function waitForIFrameLoad(): Promise<void> {
       return new Promise((resolve, reject) => {
@@ -573,33 +577,14 @@ export class Generator implements IGenerator {
    */
   async goTroughElements(element: TElement, page?: Page): Promise<void> {
     for (const child of element.el.childNodes as any) {
-      // check if one child is Header or footer and safe it
       let pageHeader = null;
-      if (child.nodeType === 1 && this.usePageHeaders) {
-        pageHeader = child.querySelector(':scope >[data-htmlWebsite2pdf-header]');
-        if (pageHeader !== null) {
-          // TODO this should be a separate function
-          let header = this.iframeDoc.createElement('div');
-          header.innerHTML = pageHeader.innerHTML;
-          this.iframeDoc.body.appendChild(header);
-          this.currentHeader.push(header);
-        }
-      }
       let pageFooter = null;
-      if (child.nodeType === 1 && this.usePageFooters) {
-        pageFooter = child.querySelector(':scope >[data-htmlWebsite2pdf-footer]');
-        if (pageFooter !== null) {
-          // TODO this should be a separate function
-          let footer = this.iframeDoc.createElement('div');
-          footer.innerHTML = pageFooter.innerHTML;
-          this.iframeDoc.body.appendChild(footer);
-          this.currentFooter.push(footer);
-        }
+      if (child instanceof HTMLElement && this.iframeWin.getComputedStyle(child).display === 'none') {
+        continue;
       }
-
       if (child.dataset?.htmlwebsite2pdfPagenumberbyid) {
         // Should get filled and placed at the end
-        this.elementsForEnd.push(child);
+        this.elementsForEnd.push(this.createTElement(child));
         continue;
       }
       if (child.dataset?.htmlwebsite2pdfCurrentpagenumber !== undefined) {
@@ -609,6 +594,11 @@ export class Generator implements IGenerator {
 
       switch (child.nodeType) {
         case 1: // Element
+          if (['script', 'style'].includes(child.tagName.toLowerCase())) break;
+          // check if one child is Header or footer and safe it
+          const headerFooterResult = this.checkForPageHeaderFooter(child);
+          pageHeader = headerFooterResult.pageHeader;
+          pageFooter = headerFooterResult.pageFooter;
           await this.handleElementNode(this.createTElement(child), page);
           break;
         case 3: // Text
@@ -619,6 +609,7 @@ export class Generator implements IGenerator {
           break;
       }
 
+      // Remove the header and footer cause they are not needed anymore
       if (pageHeader) {
         let lastHeader = this.currentHeader.pop();
         if (lastHeader) this.iframeDoc.body.removeChild(lastHeader);
@@ -630,11 +621,36 @@ export class Generator implements IGenerator {
     }
   }
 
+  checkForPageHeaderFooter(child: Element): { pageHeader: Element; pageFooter: Element } {
+    let pageHeader = null;
+    let pageFooter = null;
+    if (this.usePageHeaders) {
+      pageHeader = child.querySelector(':scope >[data-htmlWebsite2pdf-header]');
+      if (pageHeader !== null) {
+        let header = this.iframeDoc.createElement('div');
+        header.innerHTML = pageHeader.innerHTML;
+        this.iframeDoc.body.appendChild(header);
+        this.currentHeader.push(header);
+      }
+    }
+    if (this.usePageFooters) {
+      pageFooter = child.querySelector(':scope >[data-htmlWebsite2pdf-footer]');
+      if (pageFooter !== null) {
+        let footer = this.iframeDoc.createElement('div');
+        footer.innerHTML = pageFooter.innerHTML;
+        this.iframeDoc.body.appendChild(footer);
+        this.currentFooter.push(footer);
+      }
+    }
+    // TODO: maybe only return true or false to save memory
+    return { pageHeader, pageFooter };
+  }
+
   createTElement(el: HTMLElement): TElement {
     const isTextNode = el.nodeType === 3;
     const rect = isTextNode ? el.parentElement.getBoundingClientRect() : el.getBoundingClientRect();
-    const styles = isTextNode ? this.iframeWin.getComputedStyle(el.parentElement) : this.iframeWin.getComputedStyle(el);
-    return { el, rect, styles, isTextNode };
+    const styles = this.iframeWin.getComputedStyle(isTextNode ? el.parentElement : el);
+    return { el, rect, styles };
   }
 
   /**
@@ -653,8 +669,7 @@ export class Generator implements IGenerator {
       const options = { maxWidth: px.toPt(element.position.width), color: getColorFromCssRGBValue(element.styles.color) };
 
       // Check if the element fits on the current page, if not add a new page
-      await this.enoughSpaceOnPageForElement(node, element.position.bottom, element.position.top);
-
+      await this.enoughSpaceOnPageForElement(node, element.position);
       if (element.styles.display === 'inline' || element.styles.display === 'inline-block') {
         this.addBackgroundToPdf(element.styles, element.position);
         this.addBordersToPdf(element.styles, element.position);
@@ -739,12 +754,11 @@ export class Generator implements IGenerator {
    */
   async handleElementNode(element: TElement, page?: Page): Promise<void> {
     // TODO: Check if we have styling which is needed to be added to the pdf
-    // TODO: Check other things like pageBreakBeforeElements and pageBreakAfterElements etc.
     if (this.pageBreakBeforeElements.includes(element.el.tagName.toLowerCase())) {
       await this.addPageToPdf(element.rect.top);
     }
     // Before we do anything we check if it fits on the current page
-    await this.enoughSpaceOnPageForElement(element.el, element.rect.bottom, element.rect.top);
+    await this.enoughSpaceOnPageForElement(element.el, element.rect);
     // TODO: Maybe add here the check if we need a new page
     if (element.styles.display !== 'inline-block' && element.styles.display !== 'inline') {
       // Only add borders to block elements, because inline elements the childNodes get the border
@@ -766,7 +780,7 @@ export class Generator implements IGenerator {
       case 'img':
         // TODO: specialcase padding is included in the size of the image
         // If clause is only needed for linting, because we already checked the tagName
-        await this.enoughSpaceOnPageForElement(element.el, element.rect.bottom, element.rect.top);
+        await this.enoughSpaceOnPageForElement(element.el, element.rect);
         // Create a canvas and draw the image on it, so we can get the image as a jpeg anyway (also if it is a svg, etc.)
         const canvas = document.createElement('canvas');
         canvas.width = (element.el as HTMLImageElement).naturalWidth;
@@ -801,7 +815,7 @@ export class Generator implements IGenerator {
       case 'h5':
       case 'h6':
         if (this.outlineForHeadings && element.el.dataset.htmlwebsite2pdfNoOutline === undefined) {
-          await this.enoughSpaceOnPageForElement(element.el, element.rect.bottom, element.rect.top);
+          await this.enoughSpaceOnPageForElement(element.el, element.rect);
           const positionResult = this.findBookmarkPosition(this.bookmarks, parseInt(element.el.tagName[1]));
           positionResult.positions.pop();
           this.bookmarks = positionResult.bookmarks;
@@ -1020,19 +1034,22 @@ export class Generator implements IGenerator {
    * @param {number} top The top position of the element
    * @returns
    */
-  async enoughSpaceOnPageForElement(element: HTMLElement | Node, bottom: number, top: number) {
-    const yPos = this.currentAvailableHeight - +px.toPt(bottom + this.scrollTop - this.offsetY);
+  async enoughSpaceOnPageForElement(element: HTMLElement | Node, rect: DOMRect) {
     if (element instanceof HTMLElement && this.iframeWin.getComputedStyle(element).display === 'none') {
       return;
     }
-    if (element instanceof HTMLElement && this.currentAvailableHeight < px.toPt(element.getBoundingClientRect().height)) {
+    const yPos = this.currentAvailableHeight - +px.toPt(rect.bottom + this.scrollTop - this.offsetY);
+    if (yPos >= 0) {
+      return;
+    }
+    if (element instanceof HTMLElement && this.currentAvailableHeight < px.toPt(rect.height)) {
       // TODO: Element is larger than the page, we ignore it for now and hope its only a wrapper
       console.warn('Element is larger than the page:', element);
     } else if (yPos < 0 && ((element.childNodes.length === 1 && element.childNodes[0].nodeType !== 3) || element.childNodes.length < 1)) {
       // TODO: We ignore elements which have children so that text breaks in lines instead of the parent
       console.log('Not enough space on the page for the element:', element);
       // TODO: check if it would be on the next page, if not push it into placeLater-Array
-      await this.addPageToPdf(top);
+      await this.addPageToPdf(rect.top);
     }
   }
 
@@ -1043,50 +1060,69 @@ export class Generator implements IGenerator {
    */
 
   getTextLinesOfNode(element: Text): Array<TTextNodeData> {
-    const textNodes = this.getTextNodes(element);
+    // If the textNode is empty we return an empty array
+    if (element.data.replace(/[\n\t\r\s]/g, '').replace(/  /g, '').length === 0) {
+      return [];
+    }
     const textWithStyles: Array<TTextNodeData> = [];
-    textNodes.forEach((node) => {
-      let textOfNode = '';
+    let textOfNode = '';
+    if (!['CODE', 'PRE'].includes(element.parentElement?.nodeName!)) {
+      element.data = element.data.replace(/[\n\t\r]/g, '').replace(/  /g, '');
+      textOfNode = element.data!;
+    } else {
+      element.data = element.data.replace(/[\r]/g, '').replace(/\t/g, ' ').replace(/  /g, '');
+      textOfNode = element.data!;
+    }
+    const range = this.iframeDoc.createRange();
+    range.selectNodeContents(element);
+    const rects = range.getClientRects();
 
-      if (node.parentElement?.nodeName !== 'CODE' && node.parentElement?.nodeName !== 'PRE') {
-        node.data = node.data.replace(/[\n\t\r]/g, '').replace(/  /g, '');
-        textOfNode = node.data!;
-      } else {
-        node.data = node.data.replace(/[\r]/g, '').replace(/\t/g, ' ').replace(/  /g, '');
-        textOfNode = node.data!;
-      }
-      const range = this.iframeDoc.createRange();
-      range.selectNodeContents(node);
-      const rects = range.getClientRects();
-
-      const computedStyle = this.iframeWin.getComputedStyle(node.parentElement!);
-      Array.from(rects).forEach((rect) => {
-        let text = '';
-        // Split text content to get only the text in the current rect
-        let tempEl = this.iframeDoc.createElement('span');
-        tempEl.style.setProperty('font-style', computedStyle.fontStyle);
-        tempEl.style.setProperty('font-weight', computedStyle.fontWeight);
-        tempEl.style.setProperty('font-size', computedStyle.fontSize);
-        tempEl.style.setProperty('font-family', computedStyle.fontFamily);
-        this.iframeDoc.body.appendChild(tempEl);
-        for (let i = 1; i <= textOfNode.length; i++) {
-          tempEl.textContent = textOfNode.slice(0, i);
-          text = textOfNode.slice(0, i);
-          if (tempEl.getBoundingClientRect().width > rect.width) {
-            // If we are getting bigger than the rect, we have text justify so we need to cut at the last space or hyphen
-            const lastSpace = text.lastIndexOf(' ');
-            const lastHyphen = text.lastIndexOf('-');
-            if (lastSpace > 0 || lastHyphen > 0) {
-              text = text.slice(0, lastSpace > lastHyphen ? lastSpace + 1 : lastHyphen + 1);
-            }
-            break;
-          } else if (tempEl.getBoundingClientRect().width === rect.width) {
-            if (textOfNode.slice(i, i + 1) == ' ') {
-              text = textOfNode.slice(0, i + 1);
-            }
-            break;
+    const computedStyle = this.iframeWin.getComputedStyle(element.parentElement!);
+    // If the textNode is only one line and the textAlign is not justify we can return the textNode as one line
+    if (rects.length === 1 && computedStyle.textAlign !== 'justify') {
+      return [
+        {
+          text: textOfNode.replace('\n', ' '),
+          position: rects[0],
+          styles: computedStyle,
+          wordSpacing: 0,
+          wordWidths: [],
+        },
+      ];
+    }
+    Array.from(rects).forEach((rect) => {
+      let text = '';
+      // Split text content to get only the text in the current rect
+      let tempEl = this.iframeDoc.createElement('span');
+      tempEl.style.setProperty('font-style', computedStyle.fontStyle);
+      tempEl.style.setProperty('font-weight', computedStyle.fontWeight);
+      tempEl.style.setProperty('font-size', computedStyle.fontSize);
+      tempEl.style.setProperty('font-family', computedStyle.fontFamily);
+      this.iframeDoc.body.appendChild(tempEl);
+      for (let i = 1; i <= textOfNode.length; i++) {
+        tempEl.textContent = textOfNode.slice(0, i);
+        text = textOfNode.slice(0, i);
+        const tempElWidth = tempEl.getBoundingClientRect().width;
+        if (tempElWidth > rect.width) {
+          // If we are getting bigger than the rect, we have text justify so we need to cut at the last space or hyphen
+          const lastSpace = text.lastIndexOf(' ');
+          const lastHyphen = text.lastIndexOf('-');
+          if (lastSpace > 0 || lastHyphen > 0) {
+            text = text.slice(0, lastSpace > lastHyphen ? lastSpace + 1 : lastHyphen + 1);
           }
+          break;
+        } else if (tempElWidth === rect.width) {
+          if (textOfNode.slice(i, i + 1) == ' ') {
+            text = textOfNode.slice(0, i + 1);
+          }
+          break;
         }
+      }
+
+      const wordWidths = [];
+      let wordSpacing = 0;
+
+      if (computedStyle.textAlign === 'justify') {
         let words = text.split(' ');
         words.forEach((word, idx) => {
           if (word === '') {
@@ -1100,11 +1136,7 @@ export class Generator implements IGenerator {
             words[idx] = `${words[idx]} `;
           }
         });
-
-        const wordWidths = [];
-        let wordSpacing = 0;
-
-        if (words.length > 1 && computedStyle.textAlign === 'justify') {
+        if (words.length > 1) {
           words.forEach((word) => {
             tempEl.textContent = word;
             wordWidths.push(tempEl.getBoundingClientRect().width);
@@ -1113,37 +1145,20 @@ export class Generator implements IGenerator {
           let spaceCount = (text.match(/ /g) || []).length;
           wordSpacing = (rect.width - wordWidths.reduce((a, b) => a + b, 0)) / spaceCount;
         }
-        this.iframeDoc.body.removeChild(tempEl);
+      }
+      this.iframeDoc.body.removeChild(tempEl);
 
-        textOfNode = textOfNode.slice(text.length);
+      textOfNode = textOfNode.slice(text.length);
 
-        textWithStyles.push({
-          text: text.replace('\n', ' '),
-          position: rect,
-          styles: computedStyle,
-          wordSpacing,
-          wordWidths,
-        });
+      textWithStyles.push({
+        text: text.replace('\n', ' '),
+        position: rect,
+        styles: computedStyle,
+        wordSpacing,
+        wordWidths,
       });
     });
-
     return textWithStyles;
-  }
-
-  /**
-   * Gets all text nodes of an element
-   * @param {Text} element The element which should be used to get the text nodes
-   * @returns {Array<Text>} The array of text nodes
-   */
-  getTextNodes(element: Text) {
-    const textNodes: Array<Text> = [];
-
-    if (element.nodeType === Node.TEXT_NODE) {
-      if (element.data.replace(/[\n\t\r]/g, '').replace(/  /g, '').length) {
-        textNodes.push(element);
-      }
-    }
-    return textNodes;
   }
 
   /**
@@ -1160,29 +1175,27 @@ export class Generator implements IGenerator {
     if (this.usePageHeaders && this.currentHeader.length) {
       let tempOffsetY = this.offsetY;
       let tempOffsetX = this.offsetX;
-      this.offsetY = this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect().top + this.scrollTop;
-      this.offsetX = this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect().left + this.scrollLeft;
+      const currentHeaderRect = this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect();
+      this.offsetY = currentHeaderRect.top + this.scrollTop;
+      this.offsetX = currentHeaderRect.left + this.scrollLeft;
       await this.goTroughElements(this.createTElement(this.currentHeader[this.currentHeader.length - 1]));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
-      this.currentHeaderHeight = px.toPt(this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect().height);
+      this.currentHeaderHeight = px.toPt(currentHeaderRect.height);
     }
     if (this.usePageFooters && this.currentFooter.length) {
       let tempOffsetY = this.offsetY;
       let tempOffsetX = this.offsetX;
       let tempHeight = this.pageSize[1];
-      this.offsetY = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect().top + this.scrollTop;
-      this.offsetX = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect().left + this.scrollLeft;
-      this.pageSize[1] =
-        px.toPt(this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect().height) +
-        this.margin[1] +
-        this.margin[3] +
-        this.currentHeaderHeight;
+      const currentFooterRect = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect();
+      this.offsetY = currentFooterRect.top + this.scrollTop;
+      this.offsetX = currentFooterRect.left + this.scrollLeft;
+      this.pageSize[1] = px.toPt(currentFooterRect.height) + this.margin[1] + this.margin[3] + this.currentHeaderHeight;
       await this.goTroughElements(this.createTElement(this.currentFooter[this.currentFooter.length - 1]));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
       this.pageSize[1] = tempHeight;
-      this.currentFooterHeight = px.toPt(this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect().height);
+      this.currentFooterHeight = px.toPt(currentFooterRect.height);
     }
     this.currentAvailableHeight -= this.currentHeaderHeight + this.currentFooterHeight;
     if (this.pages.length) {
@@ -1202,7 +1215,7 @@ export class Generator implements IGenerator {
    * Get the fonts which are used in the document from their font-face rules
    * @returns {void}
    */
-  async getFontsOfWebsite(): Promise<void> {
+  getFontsOfWebsite(): void {
     // FEATURE: Here we could also add support for local fonts which are not loaded from a stylesheet, via local font api
     // Iterate through all stylesheets
     const filteredStylesheets = Array.from(document.styleSheets).filter((styleSheet) => styleSheet.href && styleSheet.cssRules);
@@ -1256,7 +1269,6 @@ export class Generator implements IGenerator {
         this.fontsOfWebsite.push(font);
       }
     }
-    console.log(this.fontsOfWebsite);
   }
 
   /**
@@ -1265,10 +1277,12 @@ export class Generator implements IGenerator {
    * @private
    */
   hideIgnoredElements(): void {
-    // TODO: Should this be this.inputEl?
     // Hide by tag name
-    let selectors = `[data-htmlWebsite2pdf-ignore],${[...this.ignoreElements, this.ignoreElementsByClass.map((el) => `.${el}`)].join(',')}`;
-    // if we have a comma at the end, we remove itƒ
+    let selectors = `[data-htmlWebsite2pdf-ignore],${[
+      ...this.ignoreElements,
+      this.ignoreElementsByClass.map((el) => (el.startsWith('.') ? el : `.${el}`)),
+    ].join(',')}`;
+    // if we have a comma at the end, we remove it
     selectors.lastIndexOf(',') === selectors.length - 1 ? (selectors = selectors.slice(0, -1)) : selectors;
     this.inputEl.querySelectorAll(selectors).forEach((el) => {
       el.classList.add('htmlWebsite2pdf-ignore');
@@ -1304,8 +1318,8 @@ export class Generator implements IGenerator {
    */
   addInternalLinks() {
     for (const link of this.internalLinkingElements) {
-      let result = this.elementsWithId.filter((el) => el.id === link.id.replace('#', ''));
-      if (result.length) {
+      let result = this.elementsWithId.find((el) => el.id === link.id.replace('#', ''));
+      if (result) {
         // for now we use the first result, but we should throw an error if there are more than one
         let linkOptions: TLinkOptions = {};
         if (this.linkBorderColor) {
@@ -1321,8 +1335,11 @@ export class Generator implements IGenerator {
           };
         }
 
-        const pageResult = this.getPageByPosition(link.el.getBoundingClientRect().top + this.scrollTop, link.el.getBoundingClientRect().bottom + this.scrollTop);
-        if(pageResult === undefined) {
+        const pageResult = this.getPageByPosition(
+          link.el.getBoundingClientRect().top + this.scrollTop,
+          link.el.getBoundingClientRect().bottom + this.scrollTop,
+        );
+        if (pageResult === undefined) {
           console.error("Skipped placing - Couldn't find the Page for the following element:", link.el);
           continue;
         }
@@ -1335,9 +1352,9 @@ export class Generator implements IGenerator {
             pageResult.headerOffset,
         };
 
-        this.pdf.addInternalLink(position, link.width, link.height, pageResult.pdfPage, result[0].page, linkOptions);
+        this.pdf.addInternalLink(position, link.width, link.height, pageResult.pdfPage, result.page, linkOptions);
       }
-    };
+    }
   }
 
   /**
@@ -1346,7 +1363,7 @@ export class Generator implements IGenerator {
    * @param {number} bottom The bottom position of the element
    * @returns {TPageObject|undefined} The page object of the element or undefined if it couldn't be found
    */
-  getPageByPosition(top: number, bottom): TPageObject | undefined {
+  getPageByPosition(top: number, bottom: number): TPageObject | undefined {
     let pageObj = this.pages.find((element) => element.yStart <= top && element.yStart <= bottom && element.yEnd >= top && element.yEnd >= bottom);
     if (!pageObj) {
       const index = this.pages.findIndex((element) => element.yEnd >= top);
@@ -1361,27 +1378,27 @@ export class Generator implements IGenerator {
    * Adds all elements which we skipped because they didn't fit on the current page
    * @returns {void}
    */
-  async addElementsForEnd() {
+  async addElementsForEnd(): Promise<void> {
     for (const element of this.elementsForEnd) {
-      const pageResult = this.getPageByPosition(element.getBoundingClientRect().top + this.scrollTop, element.getBoundingClientRect().bottom + this.scrollTop);
-      if(pageResult === undefined) {
+      const pageResult = this.getPageByPosition(element.rect.top + this.scrollTop, element.rect.bottom + this.scrollTop);
+      if (pageResult === undefined) {
         console.error("Skipped placing - Couldn't find the Page for the following element:", element);
         continue;
       }
       this.offsetY = pageResult.yStart;
       this.currentHeaderHeight = pageResult.headerOffset;
       // set Our values if needed
-      if (element.dataset?.htmlwebsite2pdfPagenumberbyid) {
-        const id = element.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
-        const target = this.elementsWithId.filter((el) => el.id === id);
+      if (element.el.dataset?.htmlwebsite2pdfPagenumberbyid) {
+        const id = element.el.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
+        const target = this.elementsWithId.find((el) => el.id === id);
 
-        if (target.length) {
-          element.innerText = `${this.pages[target[0].pageId].pageNumber}`;
+        if (target) {
+          element.el.innerText = `${this.pages[target.pageId].pageNumber}`;
         }
       }
 
       // Go trough the element and place it thereby
-      await this.goTroughElements(this.createTElement(element), pageResult.pdfPage);
+      await this.goTroughElements(element, pageResult.pdfPage);
     }
   }
 
@@ -1399,7 +1416,7 @@ export class Generator implements IGenerator {
       const foundFontOfWebsite = this.fontsOfWebsite
         .filter((font) => font.family === fontFamily && font.style === fontStyle)
         .sort((a, b) => a.weight - b.weight)
-        .filter((font) => font.weight >= fontWeight)[0];
+        .find((font) => font.weight >= fontWeight);
       if (!foundFontOfWebsite) {
         // TODO: Add fallback if we don't find a font, maybe caused by a higher font weight than available
         reject(new Error(`Font ${fontFamily} with weight ${fontWeight} and style ${fontStyle} not found`));

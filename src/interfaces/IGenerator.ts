@@ -53,7 +53,7 @@ export interface IGenerator {
   currentFooterHeight: number;
   currentAvailableHeight: number;
   elementsWithId: Array<{ id: string; page: Page; position: TPosition }>; // TODO: Should be type and maybe a Map
-  elementsForEnd: Array<HTMLElement>;
+  elementsForEnd: Array<TElement>;
   internalLinkingElements: Array<TInternalLink>;
   startTime?: Date;
 
@@ -71,11 +71,10 @@ export interface IGenerator {
     level: number,
     positionArray: Array<number>,
   ): { bookmarks: Array<TBookmarkObject>; positions: Array<number> }; // TODO: Should be type
-  enoughSpaceOnPageForElement(element: HTMLElement | Node, bottom: number, top: number): void;
+  enoughSpaceOnPageForElement(element: HTMLElement | Node, rect: DOMRect): void;
   getTextLinesOfNode(element: Node): Array<TTextNodeData>;
-  getTextNodes(element: Node): Array<Node>;
   addPageToPdf(yPos: number): Promise<void>;
-  getFontsOfWebsite(): Promise<void>;
+  getFontsOfWebsite(): void;
   hideIgnoredElements(inputEl: HTMLElement): void;
   showIgnoredElements(): void;
   getUsedFont(
