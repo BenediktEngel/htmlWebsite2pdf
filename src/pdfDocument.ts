@@ -127,19 +127,11 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Output the header of the PDF document as a string.
-   * @returns {string} The header of the PDF document.
+   * Output the header and body of the PDF document as a Buffer.
+   * @returns {Buffer} The header and body of the PDF document.
    */
-  private outputHeader(): string {
-    return `%PDF-${this.version}\r\n%âãÏÒ\r\n`;
-  }
-
-  /**
-   * Output the body of the PDF document as a Buffer.
-   * @returns {Buffer} The body of the PDF document.
-   */
-  private outputBody(): Buffer {
-    let outputBuffer = Buffer.from(this.outputHeader());
+  private outputHeaderAndBody(): Buffer {
+    let outputBuffer = Buffer.from(`%PDF-${this.version}\r\n%âãÏÒ\r\n`);
     this.indirectObjects.forEach((indirectObject, id) => {
       const temp = indirectObject;
       const objectOutput = indirectObject.obj.toBuffer();
@@ -175,11 +167,11 @@ export class PDFDocument implements IPDFDocument {
         fontHelper.addFontToDocument(this, font);
       }
     });
-    const body = this.outputBody();
+    const body = this.outputHeaderAndBody();
     const bytesToStartxref = body.byteLength;
     return Buffer.concat([
       body,
-      Buffer.from(`${this.crossReferenceTableAsString()}trailer\r\n${this.trailer.toBuffer()}\r\nstartxref\r\n${bytesToStartxref}\r\n%%EOF`),
+      Buffer.from(`${this.createCrossReferenceTable()}trailer\r\n${this.trailer.toBuffer()}\r\nstartxref\r\n${bytesToStartxref}\r\n%%EOF`),
     ]);
   }
 
@@ -219,7 +211,7 @@ export class PDFDocument implements IPDFDocument {
    * Output the cross reference table as a string.
    * @returns {string} The cross reference table as a string.
    */
-  private crossReferenceTableAsString(): string {
+  private createCrossReferenceTable(): string {
     // Build the cross reference table
     this.indirectObjects.forEach((object, id) => {
       if (!object.byteOffset) throw new Error(`Byte offset for indirect object with id ${id} is not set! Couldn't build cross reference table.`);
@@ -325,7 +317,7 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Add text to the current page of the PDF document.
+   * Add text to a page of the PDF document.
    * @overload
    * @param {TPosition} pos The position of the text in pt.
    * @param {string} text The text to add
@@ -350,9 +342,9 @@ export class PDFDocument implements IPDFDocument {
    * @param {number | Page | undefined} [page=undefined] The page number (starting at 0) to add the text to, if no page is provided, the text will be added to the current (last) page.
    * @returns {void}
    */
-  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number | Page): void;
-  addTextToCurrentPage(pos: TPosition, text: string, fontName: string, fontSize: number, options: TTextOptions, page?: number | Page): void;
-  addTextToCurrentPage(
+  addTextToPage(pos: TPosition, text: string, fontName: string, fontSize: number, page?: number | Page): void;
+  addTextToPage(pos: TPosition, text: string, fontName: string, fontSize: number, options: TTextOptions, page?: number | Page): void;
+  addTextToPage(
     pos: TPosition,
     text: string,
     fontName: string,
@@ -458,7 +450,7 @@ export class PDFDocument implements IPDFDocument {
    * @param {number} [page=undefined] - The page number (starting at 0) to add the image to, if no page is provided, the image will be added to the current (last) page.
    * @returns {void}
    */
-  addImageToCurrentPage(
+  addImageToPage(
     pos: TPosition,
     image: Buffer,
     width: number,
@@ -517,7 +509,7 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Draw a rectangle to the current page of the PDF document.
+   * Draw a rectangle to a page of the PDF document.
    * @overload
    * @param {TPosition} pos - The lower left corner of the rectangle in pt.
    * @param {number} width - The width of the rectangle in pt.
@@ -541,9 +533,9 @@ export class PDFDocument implements IPDFDocument {
    * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the rectangle on, if no page is provided, the rectangle will be drawn on the current (last) page.
    * @returns {void}
    */
-  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, page?: number): void;
-  drawRectangleToCurrentPage(pos: TPosition, width: number, height: number, options: TRectangleOptions, page?: number): void;
-  drawRectangleToCurrentPage(
+  drawRectangleToPage(pos: TPosition, width: number, height: number, page?: number): void;
+  drawRectangleToPage(pos: TPosition, width: number, height: number, options: TRectangleOptions, page?: number): void;
+  drawRectangleToPage(
     pos: TPosition,
     width: number,
     height: number,
@@ -574,7 +566,7 @@ export class PDFDocument implements IPDFDocument {
   }
 
   /**
-   * Draw a straight line to the current page of the PDF document.
+   * Draw a straight line to a page of the PDF document.
    * @overload
    * @param {TPosition} start - The start position of the line in pt.
    * @param {TPosition} end - The end position of the line in pt.
@@ -595,9 +587,9 @@ export class PDFDocument implements IPDFDocument {
    * @param {number | undefined} [page=undefined] - The page number (starting at 0) to draw the line on, if no page is provided, the line will be drawn on the current (last) page.
    * @returns {void}
    */
-  drawLineToCurrentPage(start: TPosition, end: TPosition, page?: number): void;
-  drawLineToCurrentPage(start: TPosition, end: TPosition, options?: TLineOptions, page?: number): void;
-  drawLineToCurrentPage(start: TPosition, end: TPosition, pageOrOptions?: TLineOptions | number, page?: number): void {
+  drawLineToPage(start: TPosition, end: TPosition, page?: number): void;
+  drawLineToPage(start: TPosition, end: TPosition, options?: TLineOptions, page?: number): void;
+  drawLineToPage(start: TPosition, end: TPosition, pageOrOptions?: TLineOptions | number, page?: number): void {
     let pageId;
     let options;
     if (typeof pageOrOptions === 'number' || pageOrOptions === undefined) {

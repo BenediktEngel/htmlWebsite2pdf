@@ -734,7 +734,7 @@ export class Generator implements IGenerator {
     wordOffset: number,
     page?: Page,
   ): void {
-    this.pdf.addTextToCurrentPage(
+    this.pdf.addTextToPage(
       {
         x: px.toPt(position.x - this.offsetX + wordOffset) + this.margin[3], // TODO: shouldnt this be the second?
         y: this.pageSize[1] - +px.toPt(position.bottom + this.scrollTop - this.offsetY - textOffset) - this.margin[1] - this.currentHeaderHeight,
@@ -788,7 +788,7 @@ export class Generator implements IGenerator {
         canvas.getContext('2d').drawImage(element.el as HTMLImageElement, 0, 0);
         const imageData = canvas.toDataURL('image/jpeg');
         const imgData = await fetch(imageData).then((res) => res.arrayBuffer());
-        this.pdf.addImageToCurrentPage(
+        this.pdf.addImageToPage(
           {
             x: px.toPt(element.rect.x - this.offsetX),
             y:
@@ -916,7 +916,7 @@ export class Generator implements IGenerator {
       !computedStyles.backgroundColor.includes('rgba(0, 0, 0, 0)') &&
       !computedStyles.backgroundColor.includes('rgb(255, 255, 255)')
     ) {
-      this.pdf.drawRectangleToCurrentPage(
+      this.pdf.drawRectangleToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
           y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
@@ -937,7 +937,7 @@ export class Generator implements IGenerator {
   addBordersToPdf(computedStyles: CSSStyleDeclaration, rect: DOMRect, element?: HTMLElement) {
     if (computedStyles.borderTopWidth !== '0px' && computedStyles.borderTopStyle !== 'none') {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
-      this.pdf.drawLineToCurrentPage(
+      this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
           y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
@@ -954,7 +954,7 @@ export class Generator implements IGenerator {
     }
     if (computedStyles.borderBottomWidth !== '0px' && computedStyles.borderBottomStyle !== 'none') {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
-      this.pdf.drawLineToCurrentPage(
+      this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
           y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
@@ -971,7 +971,7 @@ export class Generator implements IGenerator {
     }
     if (computedStyles.borderLeftWidth !== '0px' && computedStyles.borderLeftStyle !== 'none') {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
-      this.pdf.drawLineToCurrentPage(
+      this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
           y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
@@ -988,7 +988,7 @@ export class Generator implements IGenerator {
     }
     if (computedStyles.borderRightWidth !== '0px' && computedStyles.borderRightStyle !== 'none') {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
-      this.pdf.drawLineToCurrentPage(
+      this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX + rect.width),
           y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
