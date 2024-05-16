@@ -1,56 +1,61 @@
 import type { PDFDocument } from '../pdfDocument';
-import { NameObject } from '../pdfObjects/BasicObjects/NameObject';
-import { ArrayObject } from '../pdfObjects/BasicObjects/ArrayObject';
-import { BooleanObject } from '../pdfObjects/BasicObjects/BooleanObject';
-import { DictionaryObject } from '../pdfObjects/BasicObjects/DictionaryObject';
-import { NullObject } from '../pdfObjects/BasicObjects/NullObject';
 import { NumericObject } from '../pdfObjects/BasicObjects/NumericObject';
-import { StreamObject } from '../pdfObjects/BasicObjects/StreamObject';
-import { StringObject } from '../pdfObjects/BasicObjects/StringObject';
+import { CrossReferenceSubSection } from './CrossReferenceSubSection';
 import { ICrossReferenceSection } from '../interfaces';
 
 export class CrossReferenceSection implements ICrossReferenceSection {
-  firstId: number;
+  _size: NumericObject;
 
   pdf: PDFDocument;
 
-  objectCount: number;
+  private _sections: Array<CrossReferenceSubSection> = [];
 
-  entries: Array<{ id: number; byteOffset: number; generation: number; inUse: boolean }>;
-
-  constructor(pdf: PDFDocument, firstId: number, firstObjectByteOffset: number, firstObjectGeneration: number, firstObjectInUse: boolean) {
+  constructor(pdf: PDFDocument, sections: Array<CrossReferenceSubSection> = []) {
     this.pdf = pdf;
-    this.firstId = firstId;
-    this.entries = [{ id: firstId, byteOffset: firstObjectByteOffset, generation: firstObjectGeneration, inUse: firstObjectInUse }];
-    this.objectCount = 1;
+    this._size = new NumericObject(pdf, 0);
+    this._sections = sections;
+    if (!this._sections.filter((sec) => sec.firstId === 0).length) {
+      this.addSection(new CrossReferenceSubSection(this.pdf, 0, 0, 65535, false));
+    }
   }
 
-  outputSection(): string {
-    let section = `${this.firstId} ${this.objectCount}\r\n`;
-    this.entries.forEach((entry) => {
-      section += `${this.ouputCrossReferenceData(entry)}`;
+  outputTable(): string {
+    let table = 'xref\r\n';
+    this._sections.forEach((section) => {
+      table += `${section.outputSection()}`;
     });
-    return section;
+    return table;
+  }
+
+  get sections(): Array<CrossReferenceSubSection> {
+    return this._sections;
+  }
+
+  private set sections(sections: Array<CrossReferenceSubSection>) {
+    this._sections = sections;
+  }
+
+  addSection(section: CrossReferenceSubSection): void {
+    this.sections = [...this.sections, section];
   }
 
   addEntry(id: number, byteOffset: number, generation: number, inUse = true): void {
-    if (id < this.firstId) {
-      this.firstId = id;
-      this.entries = [{ id, byteOffset, generation, inUse }, ...this.entries];
+    let section = this._sections.find((sec) => sec.firstId === id + 1 || sec.firstId + sec.entries.length === id);
+    if (!section) {
+      section = new CrossReferenceSubSection(this.pdf, id, byteOffset, generation, inUse);
+      this.addSection(section);
     } else {
-      this.entries = [...this.entries, { id, byteOffset, generation, inUse }];
+      section.addEntry(id, byteOffset, generation, inUse);
     }
-    this.objectCount += 1;
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  ouputCrossReferenceData(entry: { id: number; byteOffset: number; generation: number; inUse: boolean }): string {
-    // IDEA: when we save only the id we could look in the pdf document for the object and get the byte offset and generation from there and also check if the object is indirect or not
-    const generationLength = entry.generation.toString().length;
-    const byteOffsetLength = entry.byteOffset.toString().length;
-    return `${'0'.repeat(10 - byteOffsetLength)}${entry.byteOffset} ${'0'.repeat(5 - generationLength)}${entry.generation} ${
-      entry.inUse ? 'n' : 'f'
-    }\r\n`;
+  get size(): NumericObject {
+    let size = 0;
+    this._sections.forEach((section) => {
+      size += section.entries.length;
+    });
+    this._size.value = size;
+    return this._size;
   }
 }
 

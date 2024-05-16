@@ -1,7 +1,7 @@
 import * as fontkit from 'fontkit';
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion, StringType } from './enums';
 import { PageDimensions } from './constants';
-import { CrossReferenceTable } from './pdfSections/CrossReferenceTable';
+import { CrossReferenceSection } from './pdfSections/CrossReferenceSection';
 import { BaseObject } from './pdfObjects/BasicObjects/BaseObject';
 import { NameObject } from './pdfObjects/BasicObjects/NameObject';
 import { ArrayObject } from './pdfObjects/BasicObjects/ArrayObject';
@@ -62,9 +62,9 @@ export class PDFDocument implements IPDFDocument {
 
   /**
    * The cross reference table of the PDF document.
-   * @type {CrossReferenceTable}
+   * @type {CrossReferenceSection}
    */
-  crossReferenceTable: CrossReferenceTable = new CrossReferenceTable(this);
+  crossReferenceTable: CrossReferenceSection = new CrossReferenceSection(this);
 
   /**
    * The Catalog of the PDF document.
