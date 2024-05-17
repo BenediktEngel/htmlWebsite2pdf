@@ -277,12 +277,6 @@ export class Generator implements IGenerator {
       } else {
         throw new Error('Margin must be a number or an array of 2 or 4 numbers');
       }
-      this.margin =
-        typeof options.margin === 'number'
-          ? [options.margin, options.margin, options.margin, options.margin]
-          : options.margin.length === 2
-          ? [options.margin[0], options.margin[1], options.margin[0], options.margin[1]]
-          : options.margin;
     }
     if (options.filename) {
       if (typeof options.filename === 'string') {
@@ -442,7 +436,7 @@ export class Generator implements IGenerator {
         throw new Error('iFrameWidth must be a number');
       }
     } else {
-      this.iFrameWidth = pt.toPx(this.pageSize[0]);
+      this.iFrameWidth = pt.toPx(this.pageSize[0]-this.margin[1]-this.margin[3]);
     }
     if (options.addFirstPage !== undefined) {
       if (typeof options.addFirstPage === 'boolean') {
@@ -453,7 +447,7 @@ export class Generator implements IGenerator {
     }
 
     // Calculate the available height of the page for placing the content
-    this.availableDefaultPageHeight = this.pageSize[1] - px.toPt(this.margin[0] + this.margin[2]);
+    this.availableDefaultPageHeight = this.pageSize[1] - this.margin[0] + this.margin[2];
     this.currentAvailableHeight = this.availableDefaultPageHeight;
 
     // Create the PDFDocument
@@ -625,7 +619,7 @@ export class Generator implements IGenerator {
     let pageHeader = null;
     let pageFooter = null;
     if (this.usePageHeaders) {
-      pageHeader = child.querySelector(':scope >[data-htmlWebsite2pdf-header]');
+      pageHeader = child.querySelector(':scope >template[data-htmlWebsite2pdf-header]');
       if (pageHeader !== null) {
         let header = this.iframeDoc.createElement('div');
         header.innerHTML = pageHeader.innerHTML;
@@ -634,7 +628,7 @@ export class Generator implements IGenerator {
       }
     }
     if (this.usePageFooters) {
-      pageFooter = child.querySelector(':scope >[data-htmlWebsite2pdf-footer]');
+      pageFooter = child.querySelector(':scope >template[data-htmlWebsite2pdf-footer]');
       if (pageFooter !== null) {
         let footer = this.iframeDoc.createElement('div');
         footer.innerHTML = pageFooter.innerHTML;
@@ -736,8 +730,8 @@ export class Generator implements IGenerator {
   ): void {
     this.pdf.addTextToPage(
       {
-        x: px.toPt(position.x - this.offsetX + wordOffset) + this.margin[3], // TODO: shouldnt this be the second?
-        y: this.pageSize[1] - +px.toPt(position.bottom + this.scrollTop - this.offsetY - textOffset) - this.margin[1] - this.currentHeaderHeight,
+        x: px.toPt(position.x - this.offsetX + wordOffset) + this.margin[3], 
+        y: this.pageSize[1] - +px.toPt(position.bottom + this.scrollTop - this.offsetY - textOffset) - this.margin[0] - this.currentHeaderHeight,
       },
       text,
       fontName,
@@ -794,7 +788,7 @@ export class Generator implements IGenerator {
             y:
               this.pageSize[1] -
               +px.toPt(element.rect.y + this.scrollTop - this.offsetY + (element.el as HTMLImageElement).height) +
-              -this.margin[1] -
+              -this.margin[0] -
               this.currentHeaderHeight,
           },
           imgData as Buffer,
@@ -840,7 +834,7 @@ export class Generator implements IGenerator {
               borderStroke: element.el.dataset.htmlWebsite2pdfBorderStroke ? parseInt(element.el.dataset.htmlWebsite2pdfBorderStroke) : undefined,
               position: {
                 x: px.toPt(element.rect.left + this.scrollLeft - this.offsetX),
-                y: this.pageSize[1] - px.toPt(element.rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+                y: this.pageSize[1] - px.toPt(element.rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
               },
               width: px.toPt(element.rect.width),
               height: px.toPt(element.rect.height),
@@ -891,7 +885,7 @@ export class Generator implements IGenerator {
     this.pdf.addExternalLink(
       {
         x: px.toPt(rect.left + this.scrollLeft - this.offsetX),
-        y: this.pageSize[1] - px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+        y: this.pageSize[1] - px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
       },
       px.toPt(rect.width),
       px.toPt(rect.height),
@@ -919,7 +913,7 @@ export class Generator implements IGenerator {
       this.pdf.drawRectangleToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         px.toPt(rect.width),
         px.toPt(rect.height),
@@ -940,11 +934,11 @@ export class Generator implements IGenerator {
       this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderTopColor),
@@ -957,11 +951,11 @@ export class Generator implements IGenerator {
       this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderBottomColor),
@@ -974,11 +968,11 @@ export class Generator implements IGenerator {
       this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderLeftColor),
@@ -991,11 +985,11 @@ export class Generator implements IGenerator {
       this.pdf.drawLineToPage(
         {
           x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[1] - this.currentHeaderHeight,
+          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderRightColor),
@@ -1190,7 +1184,7 @@ export class Generator implements IGenerator {
       const currentFooterRect = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect();
       this.offsetY = currentFooterRect.top + this.scrollTop;
       this.offsetX = currentFooterRect.left + this.scrollLeft;
-      this.pageSize[1] = px.toPt(currentFooterRect.height) + this.margin[1] + this.margin[3] + this.currentHeaderHeight;
+      this.pageSize[1] = px.toPt(currentFooterRect.height) + this.margin[0] + this.margin[2] + this.currentHeaderHeight;
       await this.goTroughElements(this.createTElement(this.currentFooter[this.currentFooter.length - 1]));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
@@ -1348,7 +1342,7 @@ export class Generator implements IGenerator {
           y:
             this.pageSize[1] -
             +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageResult.yStart) -
-            this.margin[1] -
+            this.margin[0] -
             pageResult.headerOffset,
         };
 
