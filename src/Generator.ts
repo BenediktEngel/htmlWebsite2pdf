@@ -12,6 +12,7 @@ import {
   TPageObject,
   TTextNodeData,
   TElement,
+  TTextLine,
 } from './types';
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
@@ -256,6 +257,17 @@ export class Generator implements IGenerator {
    * @type {Window | undefined}
    */
   iframeWin: Window | undefined;
+
+  /**
+   * The pagesize minus the top-margin and the header-height
+   */
+  pageTopOffset = 0;
+
+  /**
+   * The elements which should not be split on page breaks
+   */
+  avoidBreakingElements: string[] = ['td', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
   /**
    * The constructor of the Generator
    * @param {TGenerateOptions} options The options which should be used for generating the PDF
@@ -436,13 +448,22 @@ export class Generator implements IGenerator {
         throw new Error('iFrameWidth must be a number');
       }
     } else {
-      this.iFrameWidth = pt.toPx(this.pageSize[0]-this.margin[1]-this.margin[3]);
+      this.iFrameWidth = pt.toPx(this.pageSize[0] - this.margin[1] - this.margin[3]);
     }
     if (options.addFirstPage !== undefined) {
       if (typeof options.addFirstPage === 'boolean') {
         this.addFirstPage = options.addFirstPage;
       } else {
         throw new Error('AddFirstPage must be a boolean');
+      }
+    }
+    if (options.avoidBreakingElements) {
+      if (typeof options.avoidBreakingElements === 'string') {
+        this.avoidBreakingElements = [options.avoidBreakingElements];
+      } else if (Array.isArray(options.avoidBreakingElements) && options.avoidBreakingElements.every((el) => typeof el === 'string')) {
+        this.avoidBreakingElements = options.avoidBreakingElements;
+      } else {
+        throw new Error('AvoidBreakingElements must be a string or an array of strings');
       }
     }
 
@@ -488,12 +509,10 @@ export class Generator implements IGenerator {
     if (this.addFirstPage) this.addPageToPdf(this.offsetY);
     // Go trough all elements and place them in the PDF, starting with the input element
     await this.goTroughElements(this.createTElement(this.inputEl));
-
-    // Add all internal links to the PDF
-    this.addInternalLinks();
-
     // Now we add all Elements where the position in the Markup didn't fit the current Pages and all Elements with content which comes from us.
     await this.addElementsForEnd();
+    // Add all internal links to the PDF
+    this.addInternalLinks();
     // Remove the iframe from the document
     document.body.removeChild(document.querySelector('[data-html-website2pdf-iframe="true"]') as HTMLElement);
 
@@ -583,7 +602,7 @@ export class Generator implements IGenerator {
       }
       if (child.dataset?.htmlwebsite2pdfCurrentpagenumber !== undefined) {
         // TODO: Issue here is that the page is not already set into the pages array
-        child.innerText = this.pages[this.pages.length - 1].pageNumber + 1;
+        child.innerText = this.pages[this.pages.length - 1].pageNumber;
       }
 
       switch (child.nodeType) {
@@ -654,93 +673,48 @@ export class Generator implements IGenerator {
    * @returns {Promise<void>}
    */
   async handleTextNode(node: Text, page?: Page): Promise<void> {
-    const textNodes: Array<TTextNodeData> = this.getTextLinesOfNode(node);
-    for (const element of textNodes) {
-      // Get the font of the node, and add it to the pdf if it is not already added
-      const fontOfNode = element.styles.fontFamily.split(',')[0].replace(/['"]+/g, '');
-      const usedFont = await this.getUsedFont(fontOfNode, parseInt(element.styles.fontWeight), element.styles.fontStyle);
-
-      const options = { maxWidth: px.toPt(element.position.width), color: getColorFromCssRGBValue(element.styles.color) };
-
+    const textLines: Array<TTextLine> = this.getTextLinesOfNode(node);
+    for (const line of textLines) {
       // Check if the element fits on the current page, if not add a new page
-      await this.enoughSpaceOnPageForElement(node, element.position);
-      if (element.styles.display === 'inline' || element.styles.display === 'inline-block') {
-        this.addBackgroundToPdf(element.styles, element.position);
-        this.addBordersToPdf(element.styles, element.position);
+      await this.enoughSpaceOnPageForElement(node, line.position);
+      if ((line.styles.display === 'inline' || line.styles.display === 'inline-block') && line.words.length > 0) {
+        let inlinePosition = undefined;
+        if (textLines.length > 1) {
+          const lineIndex = textLines.indexOf(line);
+          if (lineIndex === 0) {
+            inlinePosition = 'first';
+          } else if (lineIndex === textLines.length - 1) {
+            inlinePosition = 'last';
+          } else {
+            inlinePosition = 'middle';
+          }
+        }
+        this.addBackgroundToPdf(line.styles, line.position, true, inlinePosition);
+        this.addBordersToPdf(line.styles, line.position, true, inlinePosition);
       }
 
-      // This is a workaround to place the text more correct (Problem are the descender and ascender of the font, which is not included in the font-size but in the element height)
-      const textOffset = element.position.height - parseInt(element.styles.fontSize.replace('px', ''));
-      if (element.styles.textAlign === 'justify' && element.wordWidths.length > 2) {
-        let words = element.text.split(' ');
-        words.forEach((word, idx) => {
-          if (word === '') {
-            if (idx - 1 < 0) {
-              words[idx + 1] = ` ${words[idx + 1]} `;
-            } else {
-              words[idx - 1] = `${words[idx - 1]} `;
-            }
-            words.splice(idx, 1);
-          } else {
-            words[idx] = `${words[idx]} `;
-          }
-        });
-        words.forEach((word, idx) => {
-          let wordOffset = 0;
-          if (idx > 0) {
-            wordOffset = element.wordWidths.slice(0, idx).reduce((a, b) => a + b, 0);
-            wordOffset += element.wordSpacing * idx;
-          }
-          // TODO: if word starts with space add additional wordspacing offset
-          this.addTextToPdf(
-            word,
-            element.position,
-            usedFont.name,
-            parseInt(element.styles.fontSize.replace('px', '')),
-            options,
-            textOffset,
-            wordOffset,
-            page,
-          );
-        });
-      } else {
-        this.addTextToPdf(
-          element.text,
-          element.position,
+      // Get the font of the node, and add it to the pdf if it is not already added
+      const fontOfNode = line.styles.fontFamily.split(',')[0].replace(/['"]+/g, '');
+      const usedFont = await this.getUsedFont(fontOfNode, parseInt(line.styles.fontWeight), line.styles.fontStyle);
+      for (const word of line.words) {
+        const options = { maxWidth: px.toPt(word.position.width), color: getColorFromCssRGBValue(line.styles.color) };
+
+        // This is a workaround to place the text more correct (Problem are the descender and ascender of the font, which is not included in the font-size but in the element height)
+        const textOffset = word.position.height - parseInt(line.styles.fontSize.replace('px', ''));
+        this.pdf.addTextToPage(
+          {
+            x: px.toPt(word.position.x - this.offsetX) + this.margin[3],
+            y: this.pageTopOffset - px.toPt(word.position.bottom + this.scrollTop - this.offsetY - textOffset),
+          },
+          word.text,
           usedFont.name,
-          parseInt(element.styles.fontSize.replace('px', '')),
+          px.toPt(parseInt(line.styles.fontSize.replace('px', ''))),
           options,
-          textOffset,
-          0,
           page,
         );
       }
     }
   }
-
-  addTextToPdf(
-    text: string,
-    position: DOMRect,
-    fontName: string,
-    fontSize: number,
-    options: { maxWidth: number; color: TRGB },
-    textOffset: number,
-    wordOffset: number,
-    page?: Page,
-  ): void {
-    this.pdf.addTextToPage(
-      {
-        x: px.toPt(position.x - this.offsetX + wordOffset) + this.margin[3], 
-        y: this.pageSize[1] - +px.toPt(position.bottom + this.scrollTop - this.offsetY - textOffset) - this.margin[0] - this.currentHeaderHeight,
-      },
-      text,
-      fontName,
-      px.toPt(fontSize),
-      options,
-      page,
-    );
-  }
-
   /**
    * Handles an element node, checks for parts with should be placed in the PDF and places them in the PDF
    * @param {TElement} element The element which should be placed in the PDF
@@ -785,11 +759,7 @@ export class Generator implements IGenerator {
         this.pdf.addImageToPage(
           {
             x: px.toPt(element.rect.x - this.offsetX),
-            y:
-              this.pageSize[1] -
-              +px.toPt(element.rect.y + this.scrollTop - this.offsetY + (element.el as HTMLImageElement).height) +
-              -this.margin[0] -
-              this.currentHeaderHeight,
+            y: this.pageTopOffset - px.toPt(element.rect.y + this.scrollTop - this.offsetY + (element.el as HTMLImageElement).height),
           },
           imgData as Buffer,
           (element.el as HTMLImageElement).naturalWidth,
@@ -818,12 +788,17 @@ export class Generator implements IGenerator {
         break;
       case 'a':
         const href = (element.el as HTMLAnchorElement).href;
-        if (href === window.location.origin) {
+        if (href === window.location.origin || href === `${window.location.origin}${window.location.pathname}`) {
           // Link with the same href as the current page, so we link external to the website
           this.addExternalLinkToPdf(element.el, element.rect, href, this.pdf.getCurrentPage());
         } else if (href.startsWith(window.location.origin)) {
           // Link to the same website
-          const targetId = element.el.getAttribute('href')!.replace(`${window.location.origin}`, '');
+          let targetId = '';
+          if (href.startsWith(window.location.origin + window.location.pathname)) {
+            targetId = element.el.getAttribute('href')!.replace(`${window.location.origin + window.location.pathname}`, '');
+          } else {
+            targetId = element.el.getAttribute('href')!.replace(`${window.location.origin}`, '');
+          }
           const targetElement = this.inputEl!.querySelector(targetId);
           if (targetElement) {
             // TODO: This should be after the element is placed on the page, cause sometimes it doesn't fit on the current page
@@ -834,7 +809,7 @@ export class Generator implements IGenerator {
               borderStroke: element.el.dataset.htmlWebsite2pdfBorderStroke ? parseInt(element.el.dataset.htmlWebsite2pdfBorderStroke) : undefined,
               position: {
                 x: px.toPt(element.rect.left + this.scrollLeft - this.offsetX),
-                y: this.pageSize[1] - px.toPt(element.rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+                y: this.pageTopOffset - px.toPt(element.rect.bottom + this.scrollTop - this.offsetY),
               },
               width: px.toPt(element.rect.width),
               height: px.toPt(element.rect.height),
@@ -885,7 +860,7 @@ export class Generator implements IGenerator {
     this.pdf.addExternalLink(
       {
         x: px.toPt(rect.left + this.scrollLeft - this.offsetX),
-        y: this.pageSize[1] - px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+        y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY),
       },
       px.toPt(rect.width),
       px.toPt(rect.height),
@@ -900,7 +875,12 @@ export class Generator implements IGenerator {
    * @param {CSSStyleDeclaration} computedStyles The computed styles of the element
    * @param {DOMRect} rect  The bounding rect of the element
    */
-  addBackgroundToPdf(computedStyles: CSSStyleDeclaration, rect: DOMRect) {
+  addBackgroundToPdf(
+    computedStyles: CSSStyleDeclaration,
+    rect: DOMRect,
+    isInline = false,
+    inlinePosition: 'first' | 'middle' | 'last' | undefined = undefined,
+  ) {
     // TODO: Change this to also use a given page
     // TODO: Check also for transparency
     // TODO: Check for gradients
@@ -910,13 +890,33 @@ export class Generator implements IGenerator {
       !computedStyles.backgroundColor.includes('rgba(0, 0, 0, 0)') &&
       !computedStyles.backgroundColor.includes('rgb(255, 255, 255)')
     ) {
+      let inlineOffset = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      };
+      if (isInline) {
+        inlineOffset.y = parseFloat(computedStyles.paddingBottom.replace('px', ''));
+        inlineOffset.height = parseFloat(computedStyles.paddingTop.replace('px', '')) + parseFloat(computedStyles.paddingBottom.replace('px', ''));
+        if (inlinePosition === 'first') {
+          inlineOffset.x = -parseFloat(computedStyles.paddingLeft.replace('px', ''));
+          inlineOffset.width = parseFloat(computedStyles.paddingLeft.replace('px', ''));
+        } else if (inlinePosition === 'last') {
+          inlineOffset.width = parseFloat(computedStyles.paddingRight.replace('px', ''));
+        } else if (inlinePosition === undefined) {
+          inlineOffset.x = -parseFloat(computedStyles.paddingLeft.replace('px', ''));
+          inlineOffset.width = parseFloat(computedStyles.paddingRight.replace('px', '')) + parseFloat(computedStyles.paddingLeft.replace('px', ''));
+        }
+      }
+
       this.pdf.drawRectangleToPage(
         {
-          x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX + inlineOffset.x),
+          y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.y),
         },
-        px.toPt(rect.width),
-        px.toPt(rect.height),
+        px.toPt(rect.width + inlineOffset.width),
+        px.toPt(rect.height + inlineOffset.height),
         { fillColor: getColorFromCssRGBValue(computedStyles.backgroundColor) },
       );
     }
@@ -928,17 +928,40 @@ export class Generator implements IGenerator {
    * @param {DOMRect} rect the bounding rect of the element
    * @param {HTMLElement|undefined} element the element which should be added to the PDF
    */
-  addBordersToPdf(computedStyles: CSSStyleDeclaration, rect: DOMRect, element?: HTMLElement) {
+  addBordersToPdf(
+    computedStyles: CSSStyleDeclaration,
+    rect: DOMRect,
+    isInline = false,
+    inlinePosition: 'first' | 'middle' | 'last' | undefined = undefined,
+  ) {
+    let inlineOffset = {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+    };
+    if (isInline) {
+      inlineOffset.top = parseFloat(computedStyles.paddingTop.replace('px', ''));
+      inlineOffset.bottom = parseFloat(computedStyles.paddingBottom.replace('px', ''));
+      if (inlinePosition === 'first') {
+        inlineOffset.left = parseFloat(computedStyles.paddingLeft.replace('px', ''));
+      } else if (inlinePosition === 'last') {
+        inlineOffset.right = parseFloat(computedStyles.paddingRight.replace('px', ''));
+      } else if (inlinePosition === undefined) {
+        inlineOffset.left = parseFloat(computedStyles.paddingLeft.replace('px', ''));
+        inlineOffset.right = parseFloat(computedStyles.paddingRight.replace('px', ''));
+      }
+    }
     if (computedStyles.borderTopWidth !== '0px' && computedStyles.borderTopStyle !== 'none') {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          y: this.pageTopOffset - px.toPt(rect.y + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.y + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          y: this.pageTopOffset - px.toPt(rect.y + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderTopColor),
@@ -950,12 +973,12 @@ export class Generator implements IGenerator {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderBottomColor),
@@ -963,16 +986,16 @@ export class Generator implements IGenerator {
         },
       );
     }
-    if (computedStyles.borderLeftWidth !== '0px' && computedStyles.borderLeftStyle !== 'none') {
+    if (computedStyles.borderLeftWidth !== '0px' && computedStyles.borderLeftStyle !== 'none' && (!isInline || inlinePosition === 'first')) {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          y: this.pageTopOffset - px.toPt(rect.top + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderLeftColor),
@@ -980,16 +1003,16 @@ export class Generator implements IGenerator {
         },
       );
     }
-    if (computedStyles.borderRightWidth !== '0px' && computedStyles.borderRightStyle !== 'none') {
+    if (computedStyles.borderRightWidth !== '0px' && computedStyles.borderRightStyle !== 'none' && (!isInline || inlinePosition === 'last')) {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.top + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          y: this.pageTopOffset - px.toPt(rect.top + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width),
-          y: this.pageSize[1] - +px.toPt(rect.bottom + this.scrollTop - this.offsetY) + -this.margin[0] - this.currentHeaderHeight,
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
           strokeColor: getColorFromCssRGBValue(computedStyles.borderRightColor),
@@ -1036,14 +1059,22 @@ export class Generator implements IGenerator {
     if (yPos >= 0) {
       return;
     }
+    // TODO this if-statment needs rework
     if (element instanceof HTMLElement && this.currentAvailableHeight < px.toPt(rect.height)) {
       // TODO: Element is larger than the page, we ignore it for now and hope its only a wrapper
       console.warn('Element is larger than the page:', element);
+      if (this.avoidBreakingElements.includes(element.tagName.toLowerCase())) {
+        await this.addPageToPdf(rect.top);
+      }
     } else if (yPos < 0 && ((element.childNodes.length === 1 && element.childNodes[0].nodeType !== 3) || element.childNodes.length < 1)) {
       // TODO: We ignore elements which have children so that text breaks in lines instead of the parent
-      console.log('Not enough space on the page for the element:', element);
+      console.warn('Not enough space on the page for the element:', element);
       // TODO: check if it would be on the next page, if not push it into placeLater-Array
       await this.addPageToPdf(rect.top);
+    } else {
+      if (this.avoidBreakingElements.includes((element as HTMLElement).tagName.toLowerCase())) {
+        await this.addPageToPdf(rect.top);
+      }
     }
   }
 
@@ -1053,106 +1084,111 @@ export class Generator implements IGenerator {
    * @returns {Array<TTextNodeData>} The array of the text lines
    */
 
-  getTextLinesOfNode(element: Text): Array<TTextNodeData> {
+  getTextLinesOfNode(element: Text): Array<TTextLine> {
     // If the textNode is empty we return an empty array
     if (element.data.replace(/[\n\t\r\s]/g, '').replace(/  /g, '').length === 0) {
       return [];
     }
     const textWithStyles: Array<TTextNodeData> = [];
-    let textOfNode = '';
-    if (!['CODE', 'PRE'].includes(element.parentElement?.nodeName!)) {
-      element.data = element.data.replace(/[\n\t\r]/g, '').replace(/  /g, '');
-      textOfNode = element.data!;
-    } else {
-      element.data = element.data.replace(/[\r]/g, '').replace(/\t/g, ' ').replace(/  /g, '');
-      textOfNode = element.data!;
-    }
-    const range = this.iframeDoc.createRange();
-    range.selectNodeContents(element);
-    const rects = range.getClientRects();
 
-    const computedStyle = this.iframeWin.getComputedStyle(element.parentElement!);
-    // If the textNode is only one line and the textAlign is not justify we can return the textNode as one line
-    if (rects.length === 1 && computedStyle.textAlign !== 'justify') {
-      return [
-        {
-          text: textOfNode.replace('\n', ' '),
-          position: rects[0],
-          styles: computedStyle,
-          wordSpacing: 0,
-          wordWidths: [],
-        },
-      ];
-    }
-    Array.from(rects).forEach((rect) => {
-      let text = '';
-      // Split text content to get only the text in the current rect
-      let tempEl = this.iframeDoc.createElement('span');
-      tempEl.style.setProperty('font-style', computedStyle.fontStyle);
-      tempEl.style.setProperty('font-weight', computedStyle.fontWeight);
-      tempEl.style.setProperty('font-size', computedStyle.fontSize);
-      tempEl.style.setProperty('font-family', computedStyle.fontFamily);
-      this.iframeDoc.body.appendChild(tempEl);
-      for (let i = 1; i <= textOfNode.length; i++) {
-        tempEl.textContent = textOfNode.slice(0, i);
-        text = textOfNode.slice(0, i);
-        const tempElWidth = tempEl.getBoundingClientRect().width;
-        if (tempElWidth > rect.width) {
-          // If we are getting bigger than the rect, we have text justify so we need to cut at the last space or hyphen
-          const lastSpace = text.lastIndexOf(' ');
-          const lastHyphen = text.lastIndexOf('-');
-          if (lastSpace > 0 || lastHyphen > 0) {
-            text = text.slice(0, lastSpace > lastHyphen ? lastSpace + 1 : lastHyphen + 1);
-          }
-          break;
-        } else if (tempElWidth === rect.width) {
-          if (textOfNode.slice(i, i + 1) == ' ') {
-            text = textOfNode.slice(0, i + 1);
-          }
-          break;
-        }
-      }
+    const text = element.textContent;
+    const parentStyle = window.getComputedStyle(element.parentElement);
+    const range = document.createRange();
 
-      const wordWidths = [];
-      let wordSpacing = 0;
+    // Get the lines of the text
+    const lineRange = this.iframeDoc.createRange();
+    lineRange.selectNodeContents(element);
+    const lines = lineRange.getClientRects();
 
-      if (computedStyle.textAlign === 'justify') {
-        let words = text.split(' ');
-        words.forEach((word, idx) => {
-          if (word === '') {
-            if (idx - 1 < 0) {
-              words[idx + 1] = ` ${words[idx + 1]} `;
-            } else {
-              words[idx - 1] = `${words[idx - 1]} `;
-            }
-            words.splice(idx, 1);
-          } else {
-            words[idx] = `${words[idx]} `;
+
+    let words = text.split(/(\s+)/);
+    // Also split words with hyphens into several parts to also split them at end of a line
+    let replacements = [];
+    words.forEach((word, wordindex) => {
+      if (word.includes('-') && word.length > 1) {
+        let parts = word.split('-');
+        parts.forEach((part, index) => {
+          if (index != parts.length - 1) {
+            parts[index] = `${parts[index]}-`;
           }
         });
-        if (words.length > 1) {
-          words.forEach((word) => {
-            tempEl.textContent = word;
-            wordWidths.push(tempEl.getBoundingClientRect().width);
-          });
-          tempEl.textContent = text;
-          let spaceCount = (text.match(/ /g) || []).length;
-          wordSpacing = (rect.width - wordWidths.reduce((a, b) => a + b, 0)) / spaceCount;
-        }
+        replacements.push({ wordindex, parts });
       }
-      this.iframeDoc.body.removeChild(tempEl);
-
-      textOfNode = textOfNode.slice(text.length);
-
-      textWithStyles.push({
-        text: text.replace('\n', ' '),
-        position: rect,
-        styles: computedStyle,
-        wordSpacing,
-        wordWidths,
-      });
     });
-    return textWithStyles;
+    if (replacements.length > 0) {
+      replacements.reverse().forEach((replacement) => {
+        words.splice(replacement.wordindex, 1, ...replacement.parts);
+      });
+    }
+    // remove empty words
+    words = words.filter((word) => word.trim().length > 0);
+    
+    let startOffset = 0;
+    words.forEach((word) => {
+      const wordOffset = text.indexOf(word, startOffset);
+      range.setStart(element, wordOffset);
+      range.setEnd(element, wordOffset + word.length);
+
+      const rects = range.getClientRects();
+      // If we have more than one rect we have a line break
+      if (rects.length > 1) {
+        // This schould be a separate function to make more then one linebreak possible
+        let newParts = [];
+        for (let i = 1; i <= word.length; i++) {
+          range.setStart(element, wordOffset);
+          range.setEnd(element, wordOffset + i);
+          const newRects = range.getClientRects();
+          if (newRects.length > 1) {
+            if (parentStyle.hyphens === 'auto') {
+              // Hyphanation is activated so we should split the word
+              // Caused by the reason that the added hyphen gets its own rect we now that i chars are before.
+              newParts = [
+                { rect: rects[0], text: `${word.slice(0, i)}-` },
+                { rect: rects[2], text: `${word.slice(i)}` },
+              ];
+            } else {
+              // No hyphanation so we split the word at the char which is at the end of the line
+              newParts = [
+                { rect: rects[0], text: `${word.slice(0, i - 1)}` },
+                { rect: rects[1], text: `${word.slice(i - 1)}` },
+              ];
+            }
+            break;
+          }
+        }
+        Array.from(newParts).forEach((part) => {
+          textWithStyles.push({
+            text: part.text,
+            position: part.rect,
+          });
+        });
+      } else {
+        textWithStyles.push({
+          text: word,
+          position: rects[0],
+        });
+      }
+
+      startOffset = wordOffset + word.length;
+    });
+
+    // Add the Words to the lines
+    const lineElements = Array.from(lines).map((line) => {
+      return {
+        position: line,
+        words: [],
+        styles: parentStyle,
+      };
+    });
+    textWithStyles.forEach((element) => {
+      // Check in which line the element is and add it to words
+      if (element.position.top) {
+        let line = lineElements.find((line) => line.position.top === element.position.top);
+        line.words.push(element);
+      }
+    });
+
+    return lineElements;
   }
 
   /**
@@ -1162,47 +1198,54 @@ export class Generator implements IGenerator {
    */
   async addPageToPdf(yPos: number) {
     this.offsetY = yPos + this.scrollTop;
+    // We add a new page so we set the end of the old page to the current y position
+    if (this.pages.length) {
+      this.pages[this.pages.length - 1].yEnd = this.offsetY;
+    }
     this.pdf.addPage(this.pageSize);
     this.currentAvailableHeight = this.availableDefaultPageHeight;
     this.currentHeaderHeight = 0;
     this.currentFooterHeight = 0;
+    this.pages.push({
+      pdfPage: this.pdf.getCurrentPage(),
+      pageNumber: this.pages.length + 1,
+      yStart: this.offsetY,
+    });
+
     if (this.usePageHeaders && this.currentHeader.length) {
-      let tempOffsetY = this.offsetY;
-      let tempOffsetX = this.offsetX;
+      const tempOffsetY = this.offsetY;
+      const tempOffsetX = this.offsetX;
       const currentHeaderRect = this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect();
       this.offsetY = currentHeaderRect.top + this.scrollTop;
       this.offsetX = currentHeaderRect.left + this.scrollLeft;
+      this.pageTopOffset = this.pageSize[1] - this.margin[0];
       await this.goTroughElements(this.createTElement(this.currentHeader[this.currentHeader.length - 1]));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
       this.currentHeaderHeight = px.toPt(currentHeaderRect.height);
     }
     if (this.usePageFooters && this.currentFooter.length) {
-      let tempOffsetY = this.offsetY;
-      let tempOffsetX = this.offsetX;
-      let tempHeight = this.pageSize[1];
+      const tempOffsetY = this.offsetY;
+      const tempOffsetX = this.offsetX;
       const currentFooterRect = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect();
       this.offsetY = currentFooterRect.top + this.scrollTop;
       this.offsetX = currentFooterRect.left + this.scrollLeft;
-      this.pageSize[1] = px.toPt(currentFooterRect.height) + this.margin[0] + this.margin[2] + this.currentHeaderHeight;
+      this.pageTopOffset = px.toPt(currentFooterRect.height) + this.margin[2];
       await this.goTroughElements(this.createTElement(this.currentFooter[this.currentFooter.length - 1]));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
-      this.pageSize[1] = tempHeight;
       this.currentFooterHeight = px.toPt(currentFooterRect.height);
     }
     this.currentAvailableHeight -= this.currentHeaderHeight + this.currentFooterHeight;
-    if (this.pages.length) {
-      this.pages[this.pages.length - 1].yEnd = this.offsetY;
-    }
-    this.pages.push({
-      pdfPage: this.pdf.getCurrentPage(),
-      pageNumber: this.pages.length + 1,
-      yStart: this.offsetY,
+
+    // Add the missing values to the last page
+    this.pages[this.pages.length - 1] = {
+      ...this.pages[this.pages.length - 1],
       yEnd: this.offsetY + pt.toPx(this.currentAvailableHeight),
       headerOffset: this.currentHeaderHeight,
       footerOffset: this.currentFooterHeight,
-    });
+    };
+    this.pageTopOffset = this.pageSize[1] - this.margin[0] - this.currentHeaderHeight;
   }
 
   /**
@@ -1381,6 +1424,7 @@ export class Generator implements IGenerator {
       }
       this.offsetY = pageResult.yStart;
       this.currentHeaderHeight = pageResult.headerOffset;
+      this.pageTopOffset = this.pageSize[1] - this.margin[0] - pageResult.headerOffset;
       // set Our values if needed
       if (element.el.dataset?.htmlwebsite2pdfPagenumberbyid) {
         const id = element.el.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');

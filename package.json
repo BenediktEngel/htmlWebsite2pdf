@@ -8,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "buildBundle": "npm run build; npm run bundle",
-    "buildBundleMin": "npm run buildAndBundle; npm run minify",
+    "buildBundleMin": "npm run buildBundle; npm run minify",
     "lint": "node_modules/eslint/bin/eslint.js src/**/*.ts",
     "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/bundle.js",
     "minify": "uglifyjs dist/bundle.js > dist/bundle.min.js"
@@ -35,7 +35,9 @@
     "lib/**/*"
   ],
   "dependencies": {
+    "@types/fontkit": "^2.0.7",
     "@types/node": "^20.11.24",
+    "fflate": "^0.8.2",
     "fontkit": "^2.0.2",
     "fs": "^0.0.1-security"
   }

@@ -1,8 +1,11 @@
 export type TTextNodeData = {
   text: string;
-  styles: CSSStyleDeclaration;
   position: DOMRect;
-  wordWidths: Array<number>;
-  wordSpacing: number;
-  // lines: Array<string>;
+};
+
+
+export type TTextLine = {
+  position: DOMRect;
+  styles: CSSStyleDeclaration;
+  words: Array<TTextNodeData>;
 };

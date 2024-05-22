@@ -505,7 +505,7 @@ export class PDFDocument implements IPDFDocument {
     } else if (imageResource instanceof DictionaryObject) {
       imageResource.setValueByKey(NameObject.getName(this, imageName), imageStream);
     }
-    this.appendToPageContents(currentPage, Buffer.from(`q ${embedWidth} 0 0 ${embedHeight} ${pos.x} ${pos.y} cm /${imageName} Do Q`));
+    this.appendToPageContents(currentPage, Buffer.from(`q 1 0 0 1 ${pos.x} ${pos.y} cm ${embedWidth} 0 0 ${embedHeight} 0 0 cm /${imageName} Do Q`));
   }
 
   /**

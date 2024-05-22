@@ -4,7 +4,8 @@ import type { PDFDocument } from '../../pdfDocument';
 import type { DictionaryObject } from './DictionaryObject';
 import { IntegerObject } from './IntegerObject';
 import { NameObject } from './NameObject';
-import zlib from 'zlib';
+import fflate from 'fflate';
+import ArrayObject from './ArrayObject';
 
 /**
  * Class representing a stream object, used to represent a stream in a PDF document.
@@ -45,8 +46,13 @@ export class StreamObject extends BaseObject implements IStreamObject {
   toBuffer(): Buffer {
     let streamBuffer = Buffer.from(this._value);
     if (!this.streamDictionary.getValueByKey('Filter')) {
-      streamBuffer = zlib.deflateSync(streamBuffer);
-      this.streamDictionary.setValueByKey('Filter', NameObject.getName(this.pdfDocument, 'FlateDecode'));
+      streamBuffer = Buffer.from(fflate.zlibSync(streamBuffer, { level: 9 }));
+      const type = this.streamDictionary.getValueByKey('Type')
+      if(type !== undefined && (type as NameObject) === NameObject.getName(this.pdfDocument, 'XObject')) {
+        this.streamDictionary.setValueByKey('Filter', new ArrayObject(this.pdfDocument, [NameObject.getName(this.pdfDocument, 'FlateDecode'), NameObject.getName(this.pdfDocument, 'DCTDecode')]));
+      }else {
+        this.streamDictionary.setValueByKey('Filter', NameObject.getName(this.pdfDocument, 'FlateDecode'));
+      }
     }
     const streamSize = streamBuffer.byteLength;
     this.streamDictionary.setValueByKey('Length', new IntegerObject(this.pdfDocument, streamSize));

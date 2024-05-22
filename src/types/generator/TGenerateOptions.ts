@@ -28,6 +28,7 @@ export type TGenerateOptions = {
   };
   iFrameWidth?: number;
   addFirstPage?: Boolean;
+  avoidBreakingElements?: string | string[];
 };
 
 export type TFilledGenerateOptions = {
@@ -56,4 +57,5 @@ export type TFilledGenerateOptions = {
   };
   iFrameWidth: number;
   addFirstPage: Boolean;
+  avoidBreakingElements: string[];
 };

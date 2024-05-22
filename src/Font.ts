@@ -15,7 +15,7 @@ import type { PDFDocument } from './pdfDocument';
 /**
  * Create all necessary objects for a font and add them to the pdf
  * @param {PDFDocument} pdf The pdf document
- * @param  { {fontDictionary: FontDictionary; usedChars: Set<string>; file: Buffer; fontObj: any} } font Object containing all necessary font information
+ * @param  { {fontDictionary: FontDictionary; usedChars: Set<string>; file: Buffer; fontObj: Font} } font Object containing all necessary font information
  * Inspired by the font implementation from https://github.com/Hopding/pdf-lib, so thanks to the authors
  */
 export function addFontToDocument(pdf: PDFDocument, font: { fontDictionary: FontDictionary; usedChars: Set<string>; file: Buffer; fontObj: any }) {
