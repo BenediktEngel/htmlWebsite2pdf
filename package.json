@@ -1,7 +1,7 @@
 {
-  "name": "pdf-data-model",
-  "version": "0.0.1",
-  "description": "Data models for PDFs",
+  "name": "htmlWebsite2Pdf",
+  "version": "0.1.0",
+  "description": "Tool for converting HTML websites to PDFs in the browser.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
@@ -10,8 +10,8 @@
     "buildBundle": "npm run build; npm run bundle",
     "buildBundleMin": "npm run buildBundle; npm run minify",
     "lint": "node_modules/eslint/bin/eslint.js src/**/*.ts",
-    "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/bundle.js",
-    "minify": "uglifyjs dist/bundle.js > dist/bundle.min.js"
+    "bundle": "browserify -s htmlWebsite2Pdf lib/index.js > dist/htmlWebsite2Pdf.js",
+    "minify": "uglifyjs dist/bundle.js > dist/htmlWebsite2Pdf.min.js"
   },
   "author": "Benedikt Engel",
   "license": "MIT",
@@ -38,7 +38,6 @@
     "@types/fontkit": "^2.0.7",
     "@types/node": "^20.11.24",
     "fflate": "^0.8.2",
-    "fontkit": "^2.0.2",
-    "fs": "^0.0.1-security"
+    "fontkit": "^2.0.2"
   }
 }
