@@ -1,7 +1,7 @@
 # htmlWebsite2pdf
 
 > [!CAUTION]
-> This Library is still in an early state. For use in production, please test it thoroughly and check the results over multiple browsers. You can find [known issues](#known-issues) at the end of this document. Also please check the [prerequists](#prerequisites) and make sure you conform to them. If you find any issues, please report them in the [issues-panel](#).
+> This Library is still in an early state. For use in production, please test it thoroughly and check the results over multiple browsers. You can find [known issues](#known-issues) at the end of this document. Also please check the [prerequists](#prerequisites) and make sure you conform to them. If you find any issues, please report them in the [issues-panel](https://github.com/BenediktEngel/htmlWebsite2pdf/issues).
 
 This library can be used to generate a PDF-Representation from a website or a part of a website. It will go through all the elements and nodes and try to transfer the content to a PDF. Therefor you can use the library to give your users the possibility to download a PDF of your website without the need of the step to generate the PDF-version in other ways. This can be helpful if you have a lot of content or quickly changing content on your website and want to give your users the possibility to download the content for offline-usage. But keep in mind that the library is still in an early state and there can be some issues with the generation.
 
@@ -28,11 +28,11 @@ You can find more information about the [special features](#special-features) in
 
 - Generate a PDF from the whole body of the website:
   ```javascript
-  htmlWebsite2pdf.fromBody(options?);
+  htmlWebsite2Pdf.fromBody(options?);
   ```
 - Generate a PDF from a specific element and its children:
   ```javascript
-  htmlWebsite2pdf.fromElement(element, options?);
+  htmlWebsite2Pdf.fromElement(element, options?);
   ```
 
 These is the basic usage of the library. You find more information about [special features](#special-features) in the following sections.
@@ -70,19 +70,19 @@ The following elements are not supported:
 - Other elements: `head`, `meta`, `link`, `base`, `title`, `noscript`, `template`(not if used for headers or footers), `dialog`, `progress`
 - All kind of pseudo-elements so `::before` and `::after`-elements and also `::marker`-elements for lists.
 
-If you find any other elements which are not supported, please report them in the [issues](#).
+If you find any other elements which are not supported, please report them in the [issues](https://github.com/BenediktEngel/htmlWebsite2pdf/issues).
 
 ## Options
 
 There are several options available to customize the generated PDF. You can pass them as an object to the generation functions. All of the options are optional. The following options are available:
 
-```javascript
+```typescript
 {
   /*
   Margin of each page in the PDF in pt. Can be a number, a four number array or a two number array.
-  If a number, the margin will be applied to all four sides of the page.
-  If a two number array, the first number will be applied to the top and bottom, the second to the left and right.
-  If a four number array, the numbers correspond to the top, right, bottom and left margins respectively (like CSS).
+  One number: The margin will be applied to all four sides of the page.
+  Array of two numbers: The first number will be applied as the margin at the top and bottom, the second as the left and right margin.
+  Array of four numbers: The numbers correspond to the top, right, bottom and left margins respectively (like CSS).
   Default: [0, 0, 0, 0]
   */
   margin: number | [number, number] | [number, number, number, number];
@@ -119,29 +119,29 @@ There are several options available to customize the generated PDF. You can pass
   ignoreElements: string | string[];
   /*
   Whether or not to include custom page headers in the PDF.
-  If true, the header has to be defined by a template with the data attribute 'data-htmlWebsite2pdf-header'. For each page with elements which are in the same parentelement as the header, the header will be used on the page.
+  If true, the header has to be defined by a template with the data attribute 'data-htmlWebsite2pdf-header'. For each page with elements which are in the same parent element as the header, the header will be used on the page.
   Default: false
   */
   usePageHeaders: Boolean;
   /*
   Whether or not to include custom page footers in the PDF.
-  If true, the footer has to be defined by a template with the data attribute 'data-htmlWebsite2pdf-footer'. For each page with elements which are in the same parentelement as the footer, the footer will be used on the page.
+  Same usage as the option for headers, but the template needs the data-attribute 'data-htmlWebsite2pdf-footer'. 
   Default: false
   */
   usePageFooters: Boolean;
   /*
-  Elements which sould get a page break before them based on the tag name.
+  Elements which should get a page break before them based on the tag name.
   Default: []
   */
   pageBreakBeforeElements: string | string[];
   /*
-  Elements which sould get a page break after them based on the tag name.
+  Elements which should get a page break after them based on the tag name.
   Default: []
   */
   pageBreakAfterElements: string | string[];
   /*
   Whether or not to generate the Document-Outline for the PDF based on the headings in the HTML.
-  If true, the outline will be generated based on the headings and their hierarchy in the HTML. Therefor the headings have to be in the correct order.
+  If true, the outline will be generated based on the headings and their hierarchy in the HTML. Therefore the headings have to be in the correct order.
   Default: false
   */
   outlineForHeadings: Boolean;
@@ -166,7 +166,7 @@ There are several options available to customize the generated PDF. You can pass
   */
   iFrameWidth: number;
   /*
-  Whether or not a page should be added at the begin of the generation. If the first element to set is in the list of pagebreak-before you should set this to false. Otherwise the firstpage will be a blank page.
+  Whether or not a page should be added at the begin of the generation. If the first element to set is in the list of pagebreak-before you should set this to false. Otherwise the first page will be a blank page.
   Default: true
   */
   addFirstPage: Boolean;
@@ -177,7 +177,7 @@ There are several options available to customize the generated PDF. You can pass
   avoidBreakingElements: string | string[];
   pdfOptions: {
     viewerPreferences: {
-      /*
+      /* 
       Whether or not to hide the toolbar.
       Default: false
       */
@@ -242,7 +242,8 @@ Example:
 </template>
 ```
 
-This would create a header, like you can see in the picture below, with a centered text "Header" and a border at the bottom of the header. If you want to have additional margin between the border and the pagecontents, you should use the CSS-property `margin-bottom`.
+This would create a header, like you can see in the picture below, with a centered text "Header" and a border at the bottom of the header.
+If you want to have additional margin between the border and the pagecontents, you should use the CSS-property `margin-bottom`.
 
 ![Header](./docs/header.png)
 
@@ -268,11 +269,13 @@ If you want to use the Document-Outline-Feature, you can use the `outlineForHead
 Example:
 
 ```html
-<h1>Heading 1</h1>
+<h1>Title</h1>
 <!-- [...] -->
-<h2>Heading 1.1</h2>
+<h2>Heading 1</h2>
 <!-- [...] -->
-<h3>Heading 1.1.1</h3>
+<h3>Heading 1.1</h3>
+<!-- [...] -->
+<h3>Heading 1.2</h3>
 <!-- [...] -->
 <h2>Heading 2</h2>
 <!-- [...] -->
@@ -280,15 +283,16 @@ Example:
 
 This would generate an outline like this:
 
-```
-- Heading 1
-  - Heading 1.1
-    - Heading 1.1.1
-- Heading 2
-```
+![Outlines in Apple Preview](./docs/outlines.png)
 
 > [!TIP]
 > If you want a heading to be ignored in the outline, you can use the data-attribute `data-htmlWebsite2pdf-no-outline` on the heading-element. But be aware that your headline-hierarchy has to be correct without the ignored headings.
+
+### Ignore elements in the transfer
+
+If you want to ignore some elements in the transfer so they don't appear in the PDF-Document you can specify these in three different ways. You can use the `ignoreElementsByClass`- and `ignoreElements`-options to specify the elements which should be ignored (see [options](#options)). You can pass a string or an array of strings with the classnames or tag names of the elements which should be ignored. Also you can use the data-attribute `data-htmlWebsite2pdf-ignore` on the element which should be ignored.
+
+All variants will set the `display`-property of the element to `none` so they will be ignored in the transfer. Also this will result in a reflow of the elements in the website, but the user won't notice it.
 
 ### Replacements of textcontent of elements
 
@@ -424,8 +428,11 @@ There are a lot of CSS-Properties which are not supported by the library. Theref
 CSS-Properties which are known to be not supported right now are:
 `overflow`, `z-index`, `text-transform`, `transform`, etc.
 
-If you find any other properties which are not supported, please report them in the [issues](#). Then we will add them to the list of known issues.
+If you find any other properties which are not supported, please report them in the [issues](https://github.com/BenediktEngel/htmlWebsite2pdf/issues). Then we will add them to the list of known issues.
 We work on improving the support of CSS-Properties.
 
+#### Inline-Elements
+Right now there are some issues with inline-elements. If the elements have background-colors or borders, the generation may result in a different layout. Also if anchors are used inline and the anchor spans over multiple lines, the click-area will be a rectangle over the whole width of the page and the height of the lines.
+
 #### You found an issue?
-If you find any issues with the generation of the PDF, please report them in the [issues](#). 
+If you find any issues with the generation of the PDF, please report them in the [issues](https://github.com/BenediktEngel/htmlWebsite2pdf/issues). 
