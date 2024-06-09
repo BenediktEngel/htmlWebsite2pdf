@@ -4,11 +4,11 @@ export type TFontSrc = {
 };
 
 export type TFontInfo = {
-  family: string;
-  style: string;
+  family?: string;
+  style?: string;
   weight: number;
-  stretch: string;
+  stretch?: string;
   src: Array<TFontSrc>;
-  name: string;
+  name?: string;
   inPDF: boolean;
 };

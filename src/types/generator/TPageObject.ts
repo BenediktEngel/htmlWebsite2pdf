@@ -8,3 +8,4 @@ export type TPageObject = {
   headerOffset?: number;
   footerOffset?: number;
 };
+

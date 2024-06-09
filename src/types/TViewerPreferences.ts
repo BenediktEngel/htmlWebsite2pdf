@@ -19,22 +19,23 @@
  * @property {string} [printPageRange] The page range to be printed
  * @property {number} [numCopies] The number of copies to be printed
  */
+// TODO: implement them
 export type TViewerPreferences = {
   hideToolbar?: boolean;
   hideMenubar?: boolean;
   hideWindowUI?: boolean;
-  fitToWindow?: boolean;
-  centerWindow?: boolean;
+  // fitToWindow?: boolean;
+  // centerWindow?: boolean;
   displayDocTitle?: boolean;
-  nonFullScreenPageMode?: string;
-  direction?: string;
-  viewArea?: string;
-  viewClip?: string;
-  printArea?: string;
-  printClip?: string;
-  printScaling?: string;
-  duplex?: string;
-  pickTrayByPDFSize?: boolean;
-  printPageRange?: string;
-  numCopies?: number;
+  // nonFullScreenPageMode?: string;
+  // direction?: string; 
+  // viewArea?: string;
+  // viewClip?: string;
+  // printArea?: string;
+  // printClip?: string;
+  // printScaling?: string;
+  // duplex?: string;
+  // pickTrayByPDFSize?: boolean;
+  // printPageRange?: string;
+  // numCopies?: number;
 };

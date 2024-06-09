@@ -7,11 +7,8 @@ export type TGenerateOptions = {
   title?: string;
   version?: PdfVersion;
   pageSize?: [number, number];
-  resizeScrollElements?: Boolean; // TODO: Not available
-  splitElementsOnPageBreak?: Boolean; // TODO: Not available
   ignoreElementsByClass?: string | string[];
   ignoreElements?: string | string[];
-  useCustomPageNumbering?: Boolean; // TODO: Not available
   usePageHeaders?: Boolean;
   usePageFooters?: Boolean;
   pageBreakBeforeElements?: string | string[];
@@ -29,6 +26,7 @@ export type TGenerateOptions = {
   iFrameWidth?: number;
   addFirstPage?: Boolean;
   avoidBreakingElements?: string | string[];
+  imagesForLayout?: Boolean;
 };
 
 export type TFilledGenerateOptions = {
@@ -37,11 +35,8 @@ export type TFilledGenerateOptions = {
   title: string;
   version: PdfVersion;
   pageSize: [number, number];
-  resizeScrollElements: Boolean;
-  splitElementsOnPageBreak: Boolean;
   ignoreElementsByClass: string[];
   ignoreElements: string[];
-  useCustomPageNumbering: Boolean;
   usePageHeaders: Boolean;
   usePageFooters: Boolean;
   pageBreakBeforeElements: string[];
@@ -58,4 +53,5 @@ export type TFilledGenerateOptions = {
   iFrameWidth: number;
   addFirstPage: Boolean;
   avoidBreakingElements: string[];
+  imagesForLayout: Boolean;
 };
