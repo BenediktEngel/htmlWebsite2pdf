@@ -1,4 +1,3 @@
-export * from './IDocumentStructureDictionary';
 export * from './BaseObjects';
 export * from './ICrossReferenceSection';
 export * from './ICrossReferenceSubSection';

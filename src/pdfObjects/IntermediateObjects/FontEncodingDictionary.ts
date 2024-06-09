@@ -1,5 +1,3 @@
-import { BaseObjects, IntermediateObject } from '../../enums';
-import { IDocumentStructureDictionary } from '../../interfaces';
 import type { PDFDocument } from '../../pdfDocument';
 import { NameObject } from '../BasicObjects/NameObject';
 import { ArrayObject } from '../BasicObjects/ArrayObject';
@@ -10,31 +8,13 @@ import { NullObject } from '../BasicObjects/NullObject';
 import { NumericObject } from '../BasicObjects/NumericObject';
 import { StreamObject } from '../BasicObjects/StreamObject';
 import { StringObject } from '../BasicObjects/StringObject';
-import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
-import { TOptionalValue, TRequiredValue } from '../../types';
 
 /**
  * Class representing a PageTree object in a PDF document.
  * @class PageTree
- * @extends {DocumentStructureDictionary}
- * @implements {IDocumentStructureDictionary}
+ * @extends {DictionaryObject}
  */
-export class FontEncodingDictionary extends DocumentStructureDictionary implements IDocumentStructureDictionary {
-  /**
-   * The requiered values of the dictionary object.
-   * @readonly
-   */
-  readonly requieredValues: Array<TRequiredValue> = [{ name: 'Type', type: BaseObjects.NAME }];
-
-  /**
-   * The optional values of the dictionary object.
-   * @readonly
-   */
-  readonly optionalValues: Array<TOptionalValue> = [
-    { name: 'BaseEncoding', type: BaseObjects.NAME },
-    { name: 'Differences', type: BaseObjects.ARRAY },
-  ];
-
+export class FontEncodingDictionary extends DictionaryObject {
   /**
    * Creates an instance of PageTree.
    * @param {PDFDocument} pdf The PDF document to which the object belongs to

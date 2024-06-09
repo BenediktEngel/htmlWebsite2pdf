@@ -1,5 +1,3 @@
-import { BaseObjects, IntermediateObject } from '../../enums';
-import { IDocumentStructureDictionary } from '../../interfaces';
 import type { PDFDocument } from '../../pdfDocument';
 import { NameObject } from '../BasicObjects/NameObject';
 import { ArrayObject } from '../BasicObjects/ArrayObject';
@@ -10,62 +8,13 @@ import { NullObject } from '../BasicObjects/NullObject';
 import { NumericObject } from '../BasicObjects/NumericObject';
 import { StreamObject } from '../BasicObjects/StreamObject';
 import { StringObject } from '../BasicObjects/StringObject';
-import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
-import { TOptionalValue, TRequiredValue } from '../../types';
 
 /**
  * Class representing a PageTree object in a PDF document.
  * @class PageTree
- * @extends {DocumentStructureDictionary}
- * @implements {IDocumentStructureDictionary}
+ * @extends {DictionaryObject}
  */
-export class PageTree extends DocumentStructureDictionary implements IDocumentStructureDictionary {
-  /**
-   * The requiered values of the dictionary object.
-   * @readonly
-   */
-  readonly requieredValues: Array<TRequiredValue> = [
-    { name: 'Type', type: BaseObjects.NAME },
-    { name: 'Kids', type: BaseObjects.ARRAY },
-    { name: 'Count', type: BaseObjects.NUMERIC },
-    { name: 'Parent', type: BaseObjects.DICTIONARY, exception: () => this.pdfDocument.pageTree !== this },
-  ];
-
-  /**
-   * The optional values of the dictionary object.
-   * @readonly
-   */
-  readonly optionalValues: Array<TOptionalValue> = [
-    { name: 'LastModified', type: BaseObjects.STRING }, // TODO: Date
-    { name: 'Resources', type: BaseObjects.DICTIONARY },
-    { name: 'MediaBox', type: IntermediateObject.RECTANGLE },
-    { name: 'CropBox', type: IntermediateObject.RECTANGLE },
-    { name: 'BleedBox', type: IntermediateObject.RECTANGLE },
-    { name: 'TrimBox', type: IntermediateObject.RECTANGLE },
-    { name: 'ArtBox', type: IntermediateObject.RECTANGLE },
-    { name: 'BoxColorInfo', type: BaseObjects.DICTIONARY },
-    { name: 'Contents', type: [BaseObjects.ARRAY, BaseObjects.STREAM] },
-    { name: 'Rotate', type: BaseObjects.INTEGER },
-    { name: 'Group', type: BaseObjects.DICTIONARY },
-    { name: 'Thumb', type: BaseObjects.STREAM },
-    { name: 'B', type: BaseObjects.ARRAY },
-    { name: 'Dur', type: BaseObjects.NUMERIC }, // TODO: Number - whatever this means
-    { name: 'Trans', type: BaseObjects.DICTIONARY },
-    { name: 'Annots', type: BaseObjects.ARRAY },
-    { name: 'AA', type: BaseObjects.DICTIONARY },
-    { name: 'Metadata', type: BaseObjects.STREAM },
-    { name: 'PieceInfo', type: BaseObjects.DICTIONARY },
-    { name: 'StructParents', type: BaseObjects.INTEGER },
-    { name: 'ID', type: BaseObjects.STRING }, // TODO: ByteString
-    { name: 'PZ', type: BaseObjects.NUMERIC }, // TODO: Number - whatever this means
-    { name: 'SparationInfo', type: BaseObjects.DICTIONARY },
-    { name: 'Tabs', type: BaseObjects.NAME },
-    { name: 'TemplateInstantiated', type: BaseObjects.NAME },
-    { name: 'PresSteps', type: BaseObjects.DICTIONARY },
-    { name: 'UserUnit', type: BaseObjects.NUMERIC }, // TODO: Number - whatever this means
-    { name: 'VP', type: BaseObjects.DICTIONARY },
-  ];
-
+export class PageTree extends DictionaryObject {
   /**
    * Creates an instance of PageTree.
    * @param {PDFDocument} pdf The PDF document to which the object belongs to
@@ -81,6 +30,9 @@ export class PageTree extends DocumentStructureDictionary implements IDocumentSt
     > = new Map(),
     shouldBeIndirect = false,
   ) {
+    value.set(NameObject.getName(pdf, 'Type'), NameObject.getName(pdf, 'Pages'));
+    value.set(NameObject.getName(pdf, 'Kids'), new ArrayObject(pdf));
+    value.set(NameObject.getName(pdf, 'Count'), new NumericObject(pdf, 0));
     super(pdf, value, shouldBeIndirect);
   }
 }

@@ -37,7 +37,16 @@ export class CrossReferenceSubSection implements ICrossReferenceSubSection {
 
   // eslint-disable-next-line class-methods-use-this
   ouputCrossReferenceData(entry: { id: number; byteOffset: number; generation: number; inUse: boolean }): string {
-    // IDEA: when we save only the id we could look in the pdf document for the object and get the byte offset and generation from there and also check if the object is indirect or not
+    if (entry.byteOffset === undefined && !entry.inUse) {
+      let unusedObjAfter = this.entries.filter((e) => !e.inUse && e.id > entry.id);
+      if (unusedObjAfter.length) {
+        unusedObjAfter.sort((a, b) => a.id - b.id);
+        entry.byteOffset = unusedObjAfter[0].id;
+      } else {
+        entry.byteOffset = 0;
+      }
+      entry.generation = entry.generation + 1;
+    }
     const generationLength = entry.generation.toString().length;
     const byteOffsetLength = entry.byteOffset.toString().length;
     return `${'0'.repeat(10 - byteOffsetLength)}${entry.byteOffset} ${'0'.repeat(5 - generationLength)}${entry.generation} ${

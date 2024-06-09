@@ -10,11 +10,8 @@ export interface IGenerator {
   margin: [number, number, number, number];
   filename: string;
   pageSize: [number, number];
-  resizeScrollElements: boolean;
-  splitElementsOnPageBreak: boolean;
   ignoreElementsByClass: string[];
   ignoreElements: string[];
-  useCustomPageNumbering: boolean;
   usePageHeaders: boolean;
   usePageFooters: boolean;
   pageBreakBeforeElements: string[];

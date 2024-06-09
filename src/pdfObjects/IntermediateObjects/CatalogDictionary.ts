@@ -1,4 +1,3 @@
-import { BaseObjects, PdfVersion, IntermediateObject } from '../../enums';
 import { NameObject } from '../BasicObjects/NameObject';
 import { ArrayObject } from '../BasicObjects/ArrayObject';
 import { BooleanObject } from '../BasicObjects/BooleanObject';
@@ -8,60 +7,14 @@ import { NullObject } from '../BasicObjects/NullObject';
 import { NumericObject } from '../BasicObjects/NumericObject';
 import { StreamObject } from '../BasicObjects/StreamObject';
 import { StringObject } from '../BasicObjects/StringObject';
-import { DocumentStructureDictionary } from './DocumentSturctureDictionary';
 import type { PDFDocument } from '../../pdfDocument';
-import { TRequiredValue, TOptionalValue } from '../../types';
 
 /**
  * Class representing a Catalog object in a PDF document.
  * @class Catalog
- * @extends {DocumentStructureDictionary}
- * @implements {IDocumentStructureDictionary}
+ * @extends {DictionaryObject}
  */
-export class CatalagDictionary extends DocumentStructureDictionary {
-  /**
-   * The requiered values of the dictionary object.
-   * @readonly
-   */
-  readonly requieredValues: Array<TRequiredValue> = [
-    { name: 'Type', type: BaseObjects.NAME },
-    { name: 'Pages', type: IntermediateObject.PAGES },
-  ];
-
-  /**
-   * The optional values of the dictionary object.
-   * @readonly
-   */
-  readonly optionalValues: Array<TOptionalValue> = [
-    { name: 'Version', type: BaseObjects.NAME },
-    { name: 'Extensions', type: BaseObjects.DICTIONARY },
-    // {name: 'PageLabels' , type: , minVersion: PdfVersions.V1_3}, // TODO: type is numbertree
-    { name: 'Names', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_2 },
-    { name: 'Dests', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_1 },
-    { name: 'ViewerPreferences', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_2 },
-    { name: 'PageLayout', type: BaseObjects.NAME },
-    { name: 'PageMode', type: BaseObjects.NAME },
-    { name: 'Outlines', type: BaseObjects.DICTIONARY },
-    { name: 'Threads', type: BaseObjects.ARRAY, minVersion: PdfVersion.V1_1 },
-    { name: 'OpenAction', type: [BaseObjects.DICTIONARY, BaseObjects.ARRAY], minVersion: PdfVersion.V1_1 },
-    { name: 'AA', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_4 },
-    { name: 'URI', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_1 },
-    { name: 'AcroForm', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_2 },
-    { name: 'Metadata', type: BaseObjects.STREAM, minVersion: PdfVersion.V1_4 },
-    { name: 'StructTreeRoot', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_3 },
-    { name: 'MarkInfo', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_4 },
-    { name: 'Lang', type: BaseObjects.STRING, minVersion: PdfVersion.V1_4 },
-    { name: 'SpiderInfo', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_3 },
-    { name: 'OutputIntents', type: BaseObjects.ARRAY, minVersion: PdfVersion.V1_4 },
-    { name: 'PieceInfo', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_4 },
-    { name: 'OCProperties', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_5 },
-    { name: 'Perms', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_5 },
-    { name: 'Legal', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_5 },
-    { name: 'Requirements', type: BaseObjects.ARRAY, minVersion: PdfVersion.V1_7 },
-    { name: 'Collection', type: BaseObjects.DICTIONARY, minVersion: PdfVersion.V1_7 },
-    { name: 'NeedsRendering', type: BaseObjects.BOOLEAN, minVersion: PdfVersion.V1_7 },
-  ];
-
+export class CatalagDictionary extends DictionaryObject {
   /**
    * Creates an instance of Catalog.
    * @constructor
@@ -77,6 +30,8 @@ export class CatalagDictionary extends DocumentStructureDictionary {
     > = new Map(),
     shouldBeIndirect = false,
   ) {
+    const tempValue = value;
+    tempValue.set(NameObject.getName(pdf, 'Type'), NameObject.getName(pdf, 'Catalog'));
     super(pdf, value, shouldBeIndirect);
   }
 }

@@ -1,7 +1,5 @@
 export * from './TBookmark';
 export * from './TDocumentOptions';
-export * from './TOptionalValue';
-export * from './TRequieredValue';
 export * from './TLineOptions';
 export * from './TRectangleOptions';
 export * from './TPosition';

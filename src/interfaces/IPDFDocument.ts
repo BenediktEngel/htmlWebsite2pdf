@@ -1,7 +1,6 @@
 import { PdfVersion } from '../enums';
 import { IDictionaryObject } from './BaseObjects/IDictionaryObject';
 import { ICrossReferenceSection } from './ICrossReferenceSection';
-import { IDocumentStructureDictionary } from './IDocumentStructureDictionary';
 import { IIndirectObject } from './IIndirectObject';
 
 export interface IPDFDocument {
@@ -11,8 +10,8 @@ export interface IPDFDocument {
   keywords: string;
   author: string;
   crossReferenceTable: ICrossReferenceSection;
-  catalog: IDocumentStructureDictionary | undefined;
-  pageTree: IDocumentStructureDictionary | undefined;
+  catalog: IDictionaryObject | undefined;
+  pageTree: IDictionaryObject | undefined;
   trailer: IDictionaryObject;
   indirectObjects: Map<number, IIndirectObject>;
 }
