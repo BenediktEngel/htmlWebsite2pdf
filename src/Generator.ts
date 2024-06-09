@@ -17,7 +17,7 @@ import {
 import { ImageFormats, PdfPageLayout, PdfPageMode, PdfVersion } from './enums';
 import { PageDimensions } from './constants';
 import { px, pt, RGBHex, RGB, hashCode, getColorFromCssRGBValue, mm } from './utils';
-import Page from 'pdfObjects/IntermediateObjects/Page';
+import Page from './pdfObjects/IntermediateObjects/Page';
 
 declare global {
   interface Window {
@@ -57,16 +57,6 @@ export class Generator implements IGenerator {
    */
   pageSize: [number, number] = PageDimensions.A4;
   /**
-   * Option if scroll elements should be resized so they are not cut off
-   * @type {Boolean}
-   */
-  resizeScrollElements = true;
-  /**
-   * Option if elements should be split on page breaks, if false they will be moved to the next page
-   * @type {Boolean}
-   */
-  splitElementsOnPageBreak = true;
-  /**
    * Array of class-names of elements which should be ignored
    * @type {string[]}
    */
@@ -76,11 +66,6 @@ export class Generator implements IGenerator {
    * @type {string[]}
    */
   ignoreElements: Array<string> = [];
-  /**
-   * Option if custom page numbering should be used
-   * @type {Boolean}
-   */
-  useCustomPageNumbering = false;
   /**
    * Option if custom page headers should be used
    * @type {Boolean}
@@ -256,17 +241,20 @@ export class Generator implements IGenerator {
    * The window of the iframe which is used to generate the PDF
    * @type {Window | undefined}
    */
-  iframeWin: Window | undefined;
-
+  iframeWin: Window | null;
   /**
    * The pagesize minus the top-margin and the header-height
    */
   pageTopOffset = 0;
-
   /**
    * The elements which should not be split on page breaks
    */
   avoidBreakingElements: string[] = ['td', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+  /**
+   * Whether the layout of elements should be transferred as images or not
+   * If false, the layout will be tried to be transferred as vector graphics this is only possible for rectangular one colored backgrounds and borders
+   */
+  imagesForLayout = true;
 
   /**
    * The constructor of the Generator
@@ -318,20 +306,6 @@ export class Generator implements IGenerator {
         throw new Error('PageSize must be an array of 2 numbers');
       }
     }
-    if (options.resizeScrollElements) {
-      if (typeof options.resizeScrollElements === 'boolean') {
-        this.resizeScrollElements = options.resizeScrollElements;
-      } else {
-        throw new Error('ResizeScrollElements must be a boolean');
-      }
-    }
-    if (options.splitElementsOnPageBreak) {
-      if (typeof options.splitElementsOnPageBreak === 'boolean') {
-        this.splitElementsOnPageBreak = options.splitElementsOnPageBreak;
-      } else {
-        throw new Error('SplitElementsOnPageBreak must be a boolean');
-      }
-    }
     if (options.ignoreElementsByClass) {
       if (typeof options.ignoreElementsByClass === 'string') {
         this.ignoreElementsByClass = [options.ignoreElementsByClass];
@@ -350,21 +324,14 @@ export class Generator implements IGenerator {
         throw new Error('IgnoreElements must be a string or an array of strings');
       }
     }
-    if (options.useCustomPageNumbering) {
-      if (typeof options.useCustomPageNumbering === 'boolean') {
-        this.useCustomPageNumbering = options.useCustomPageNumbering;
-      } else {
-        throw new Error('UseCustomPageNumbering must be a boolean');
-      }
-    }
-    if (options.usePageHeaders) {
+    if (options.usePageHeaders !== undefined) {
       if (typeof options.usePageHeaders === 'boolean') {
         this.usePageHeaders = options.usePageHeaders;
       } else {
         throw new Error('UsePageHeaders must be a boolean');
       }
     }
-    if (options.usePageFooters) {
+    if (options.usePageFooters !== undefined) {
       if (typeof options.usePageFooters === 'boolean') {
         this.usePageFooters = options.usePageFooters;
       } else {
@@ -389,7 +356,7 @@ export class Generator implements IGenerator {
         throw new Error('PageBreakAfterElements must be a string or an array of strings');
       }
     }
-    if (options.outlineForHeadings) {
+    if (options.outlineForHeadings !== undefined) {
       if (typeof options.outlineForHeadings === 'boolean') {
         this.outlineForHeadings = options.outlineForHeadings;
       } else {
@@ -466,6 +433,13 @@ export class Generator implements IGenerator {
         throw new Error('AvoidBreakingElements must be a string or an array of strings');
       }
     }
+    if (options.imagesForLayout !== undefined) {
+      if (typeof options.imagesForLayout === 'boolean') {
+        this.imagesForLayout = options.imagesForLayout;
+      } else {
+        throw new Error('imagesForLayout must be a boolean');
+      }
+    }
 
     // Calculate the available height of the page for placing the content
     this.availableDefaultPageHeight = this.pageSize[1] - this.margin[0] + this.margin[2];
@@ -500,10 +474,10 @@ export class Generator implements IGenerator {
     // Get all fonts which are used in the stylesheets
     this.getFontsOfWebsite();
     // Calculate the offset on the x-axis (scrollLeft is needed if window is smaller than the page and it is scrolled)
-    this.scrollLeft = this.iframeDoc.documentElement.scrollLeft || this.iframeDoc.body.scrollLeft;
+    this.scrollLeft = this.iframeDoc!.documentElement.scrollLeft || this.iframeDoc!.body.scrollLeft;
     this.offsetX = this.inputEl.getBoundingClientRect().x + this.scrollLeft;
     // Scroll-Offset if the page is scrolled, needed to calculate the position of the elements
-    this.scrollTop = this.iframeDoc.documentElement.scrollTop || this.iframeDoc.body.scrollTop;
+    this.scrollTop = this.iframeDoc!.documentElement.scrollTop || this.iframeDoc!.body.scrollTop;
     this.offsetY = this.inputEl.getBoundingClientRect().y + this.scrollTop;
     // Add the first page to the PDF
     if (this.addFirstPage) this.addPageToPdf(this.offsetY);
@@ -527,7 +501,7 @@ export class Generator implements IGenerator {
 
   async moveContentToIFrame() {
     // Add an identifier to the input element so we can find it in the iframe
-    this.inputEl.setAttribute('data-htmlWebsite2pdf-inputEl', 'true');
+    this.inputEl!.setAttribute('data-htmlWebsite2pdf-inputEl', 'true');
 
     // Create an iframe, move it out of the viewport
     let iframe = document.createElement('iframe');
@@ -553,7 +527,7 @@ export class Generator implements IGenerator {
     await waitForIFrameLoad();
 
     // Get the document of the iframe
-    this.iframeDoc = iframe.contentWindow.document;
+    this.iframeDoc = iframe.contentWindow!.document;
     this.iframeWin = iframe.contentWindow;
     // Get the input element from the iframe
     this.inputEl = this.iframeDoc.querySelector('[data-htmlWebsite2pdf-inputEl]');
@@ -589,69 +563,69 @@ export class Generator implements IGenerator {
    * @returns {Promise<void>}
    */
   async goTroughElements(element: TElement, page?: Page): Promise<void> {
-    for (const child of element.el.childNodes as any) {
-      let pageHeader = null;
-      let pageFooter = null;
-      if (child instanceof HTMLElement && this.iframeWin.getComputedStyle(child).display === 'none') {
-        continue;
-      }
-      if (child.dataset?.htmlwebsite2pdfPagenumberbyid) {
-        // Should get filled and placed at the end
-        this.elementsForEnd.push(this.createTElement(child));
-        continue;
-      }
-      if (child.dataset?.htmlwebsite2pdfCurrentpagenumber !== undefined) {
-        // TODO: Issue here is that the page is not already set into the pages array
-        child.innerText = this.pages[this.pages.length - 1].pageNumber;
-      }
+    let pageHeader: Element | null = null;
+    let pageFooter: Element | null = null;
+    if (
+      element.el.nodeType === 1 &&
+      (this.iframeWin!.getComputedStyle(element.el).display === 'none' || this.iframeWin!.getComputedStyle(element.el).visibility === 'hidden')
+    ) {
+      return;
+    }
+    if (element.el.dataset?.htmlwebsite2pdfPagenumberbyid) {
+      // Should get filled and placed at the end
+      this.elementsForEnd.push(this.createTElement(element.el));
+      return;
+    }
+    if (element.el.dataset?.htmlwebsite2pdfCurrentpagenumber !== undefined) {
+      // TODO: Issue here is that the page is not already set into the pages array
+      element.el.innerText = this.pages.at(-1)!.pageNumber.toString();
+    }
+    switch (element.el.nodeType) {
+      case 1: // Element
+        if (['script', 'style'].includes(element.el.tagName.toLowerCase())) break;
+        // check if one child is Header or footer and safe it
+        const headerFooterResult = this.checkForPageHeaderFooter(element.el);
+        pageHeader = headerFooterResult.pageHeader;
+        pageFooter = headerFooterResult.pageFooter;
+        await this.handleElementNode(this.createTElement(element.el), page);
+        break;
+      case 3: // Text
+        await this.handleTextNode(element.el as unknown as Text, page);
+        break;
+      default:
+        // All other nodeTypes are not supported (and not needed), so we ignore them
+        break;
+    }
 
-      switch (child.nodeType) {
-        case 1: // Element
-          if (['script', 'style'].includes(child.tagName.toLowerCase())) break;
-          // check if one child is Header or footer and safe it
-          const headerFooterResult = this.checkForPageHeaderFooter(child);
-          pageHeader = headerFooterResult.pageHeader;
-          pageFooter = headerFooterResult.pageFooter;
-          await this.handleElementNode(this.createTElement(child), page);
-          break;
-        case 3: // Text
-          await this.handleTextNode(child, page);
-          break;
-        default:
-          // All other nodeTypes are not supported (and not needed), so we ignore them
-          break;
-      }
-
-      // Remove the header and footer cause they are not needed anymore
-      if (pageHeader) {
-        let lastHeader = this.currentHeader.pop();
-        if (lastHeader) this.iframeDoc.body.removeChild(lastHeader);
-      }
-      if (pageFooter) {
-        let lastFooter = this.currentFooter.pop();
-        if (lastFooter) this.iframeDoc.body.removeChild(lastFooter);
-      }
+    // Remove the header and footer cause they are not needed anymore
+    if (pageHeader) {
+      let lastHeader = this.currentHeader.pop();
+      if (lastHeader) this.iframeDoc!.body.removeChild(lastHeader);
+    }
+    if (pageFooter) {
+      let lastFooter = this.currentFooter.pop();
+      if (lastFooter) this.iframeDoc!.body.removeChild(lastFooter);
     }
   }
 
-  checkForPageHeaderFooter(child: Element): { pageHeader: Element; pageFooter: Element } {
-    let pageHeader = null;
-    let pageFooter = null;
+  checkForPageHeaderFooter(child: Element): { pageHeader: Element | null; pageFooter: Element | null } {
+    let pageHeader: Element | null = null;
+    let pageFooter: Element | null = null;
     if (this.usePageHeaders) {
       pageHeader = child.querySelector(':scope >template[data-htmlWebsite2pdf-header]');
       if (pageHeader !== null) {
-        let header = this.iframeDoc.createElement('div');
+        let header = this.iframeDoc!.createElement('div');
         header.innerHTML = pageHeader.innerHTML;
-        this.iframeDoc.body.appendChild(header);
+        this.iframeDoc!.body.appendChild(header);
         this.currentHeader.push(header);
       }
     }
     if (this.usePageFooters) {
       pageFooter = child.querySelector(':scope >template[data-htmlWebsite2pdf-footer]');
       if (pageFooter !== null) {
-        let footer = this.iframeDoc.createElement('div');
+        let footer = this.iframeDoc!.createElement('div');
         footer.innerHTML = pageFooter.innerHTML;
-        this.iframeDoc.body.appendChild(footer);
+        this.iframeDoc!.body.appendChild(footer);
         this.currentFooter.push(footer);
       }
     }
@@ -661,8 +635,8 @@ export class Generator implements IGenerator {
 
   createTElement(el: HTMLElement): TElement {
     const isTextNode = el.nodeType === 3;
-    const rect = isTextNode ? el.parentElement.getBoundingClientRect() : el.getBoundingClientRect();
-    const styles = this.iframeWin.getComputedStyle(isTextNode ? el.parentElement : el);
+    const rect = isTextNode ? el.parentElement!.getBoundingClientRect() : el.getBoundingClientRect();
+    const styles = this.iframeWin!.getComputedStyle(isTextNode ? el.parentElement! : el);
     return { el, rect, styles };
   }
 
@@ -677,8 +651,8 @@ export class Generator implements IGenerator {
     for (const line of textLines) {
       // Check if the element fits on the current page, if not add a new page
       await this.enoughSpaceOnPageForElement(node, line.position);
-      if ((line.styles.display === 'inline' || line.styles.display === 'inline-block') && line.words.length > 0) {
-        let inlinePosition = undefined;
+      if (!this.imagesForLayout && (line.styles.display === 'inline' || line.styles.display === 'inline-block') && line.words.length > 0) {
+        let inlinePosition: 'first' | 'last' | 'middle' | undefined = undefined;
         if (textLines.length > 1) {
           const lineIndex = textLines.indexOf(line);
           if (lineIndex === 0) {
@@ -707,7 +681,7 @@ export class Generator implements IGenerator {
             y: this.pageTopOffset - px.toPt(word.position.bottom + this.scrollTop - this.offsetY - textOffset),
           },
           word.text,
-          usedFont.name,
+          usedFont.name!,
           px.toPt(parseInt(line.styles.fontSize.replace('px', ''))),
           options,
           page,
@@ -721,17 +695,97 @@ export class Generator implements IGenerator {
    * @returns {Promise<void>}
    */
   async handleElementNode(element: TElement, page?: Page): Promise<void> {
-    // TODO: Check if we have styling which is needed to be added to the pdf
     if (this.pageBreakBeforeElements.includes(element.el.tagName.toLowerCase())) {
       await this.addPageToPdf(element.rect.top);
     }
     // Before we do anything we check if it fits on the current page
     await this.enoughSpaceOnPageForElement(element.el, element.rect);
-    // TODO: Maybe add here the check if we need a new page
-    if (element.styles.display !== 'inline-block' && element.styles.display !== 'inline') {
-      // Only add borders to block elements, because inline elements the childNodes get the border
-      this.addBordersToPdf(element.styles, element.rect);
-      this.addBackgroundToPdf(element.styles, element.rect);
+
+    if (!this.imagesForLayout) {
+      if (element.styles.display !== 'inline-block' && element.styles.display !== 'inline') {
+        // Only add borders to block elements, because inline elements the childNodes get the border
+        this.addBordersToPdf(element.styles, element.rect);
+        this.addBackgroundToPdf(element.styles, element.rect);
+      }
+    } else {
+      if (
+        (element.styles.backgroundColor !== 'rgba(0, 0, 0, 0)' && element.styles.backgroundColor !== 'rgb(255, 255, 255)') ||
+        (element.styles.borderColor !== 'rgba(0, 0, 0, 0)' &&
+          element.styles.borderColor !== 'rgb(255, 255, 255)' &&
+          element.styles.borderWidth !== '0px' &&
+          element.styles.borderStyle !== 'none')
+      ) {
+        let newEl = document.createElement('div');
+        let scaling = 1.5;
+        let createInlineStyles = (styles) => {
+          let out = '';
+          [...styles].forEach((style) => {
+            if (style !== 'display' && style !== 'width' && style !== 'height' && !style.startsWith('-') && !style.startsWith('margin')) {
+              out += `${style}:${styles[style]}; `;
+            } else if (style === 'display') {
+              out += `${style}:block; `;
+            }
+          });
+          out += `width:${element.rect.width * scaling}px; `;
+          out += `height:${element.rect.height * scaling}px; `;
+          return out;
+        };
+        newEl.setAttribute('style', createInlineStyles(element.styles));
+
+        const data = `<svg xmlns="http://www.w3.org/2000/svg" width="${element.rect.width * scaling}px" height="${
+          element.rect.height * scaling
+        }px"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">
+                   ${newEl.outerHTML}
+                 </div>
+               </foreignObject>
+             </svg>`;
+        function toImage(svg): Promise<{ url: string; width: number; height: number }> {
+          // TODO: This is realy slow, maybe we can optimize it
+          return new Promise((resolve, reject) => {
+            const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+            const img = new Image();
+            img.onload = function () {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx!.fillStyle = 'rgb(255, 255, 255)';
+              ctx!.fillRect(0, 0, canvas.width, canvas.height);
+              ctx!.drawImage(img, 0, 0);
+              canvas.toBlob(
+                function (blob) {
+                  if (blob) {
+                    const jpegUrl = URL.createObjectURL(blob);
+                    resolve({ url: jpegUrl, width: img.naturalWidth, height: img.naturalHeight });
+                  } else {
+                    reject(new Error('Canvas toBlob failed'));
+                  }
+                },
+                'image/jpeg',
+                1.0,
+              );
+            };
+            img.src = svgDataUrl;
+          });
+        }
+        const newImgData = await toImage(data);
+
+        const imgData = await fetch(newImgData.url).then((res) => res.arrayBuffer());
+        this.pdf.addImageToPage(
+          {
+            x: px.toPt(element.rect.x - this.offsetX) + this.margin[3],
+            y: this.pageTopOffset - px.toPt(element.rect.y + this.scrollTop - this.offsetY + element.rect.height),
+          },
+          imgData as Buffer,
+          newImgData.width,
+          newImgData.height,
+          px.toPt(element.rect.width),
+          px.toPt(element.rect.height),
+          ImageFormats.JPEG,
+          hashCode(newImgData.url.toString().slice(0, 100)).toString(),
+          page,
+        );
+      }
     }
     if (element.el.id) {
       this.elementsWithId.push({
@@ -739,7 +793,7 @@ export class Generator implements IGenerator {
         page: this.pdf.getCurrentPage(),
         pageId: this.pages.length - 1,
         position: {
-          x: element.rect.left + this.scrollLeft - this.offsetX,
+          x: element.rect.left + this.scrollLeft - this.offsetX + this.margin[3],
           y: element.rect.top + this.scrollTop - this.offsetY,
         },
       });
@@ -753,12 +807,16 @@ export class Generator implements IGenerator {
         const canvas = document.createElement('canvas');
         canvas.width = (element.el as HTMLImageElement).naturalWidth;
         canvas.height = (element.el as HTMLImageElement).naturalHeight;
-        canvas.getContext('2d').drawImage(element.el as HTMLImageElement, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
+        const ctx = canvas.getContext('2d');
+        // TODO: Set this to the correct background color
+        ctx!.fillStyle = 'rgb(255, 255, 255)';
+        ctx!.fillRect(0, 0, canvas.width, canvas.height);
+        ctx!.drawImage(element.el as HTMLImageElement, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg', 1.0);
         const imgData = await fetch(imageData).then((res) => res.arrayBuffer());
         this.pdf.addImageToPage(
           {
-            x: px.toPt(element.rect.x - this.offsetX),
+            x: px.toPt(element.rect.x - this.offsetX) + this.margin[3],
             y: this.pageTopOffset - px.toPt(element.rect.y + this.scrollTop - this.offsetY + (element.el as HTMLImageElement).height),
           },
           imgData as Buffer,
@@ -808,7 +866,7 @@ export class Generator implements IGenerator {
               borderColor: element.el.dataset.htmlWebsite2pdfBorderColor,
               borderStroke: element.el.dataset.htmlWebsite2pdfBorderStroke ? parseInt(element.el.dataset.htmlWebsite2pdfBorderStroke) : undefined,
               position: {
-                x: px.toPt(element.rect.left + this.scrollLeft - this.offsetX),
+                x: px.toPt(element.rect.left + this.scrollLeft - this.offsetX) + this.margin[3],
                 y: this.pageTopOffset - px.toPt(element.rect.bottom + this.scrollTop - this.offsetY),
               },
               width: px.toPt(element.rect.width),
@@ -828,7 +886,9 @@ export class Generator implements IGenerator {
         // There are no special cases for the element or they are not implemented yet
         break;
     }
-    await this.goTroughElements(element, page);
+    for (const child of element.el.childNodes as any) {
+      if (child.nodeType === 1 || child.nodeType === 3) await this.goTroughElements(this.createTElement(child), page);
+    }
     if (this.pageBreakAfterElements.includes(element.el.tagName.toLowerCase())) {
       await this.addPageToPdf(element.rect.bottom);
     }
@@ -859,12 +919,12 @@ export class Generator implements IGenerator {
     }
     this.pdf.addExternalLink(
       {
-        x: px.toPt(rect.left + this.scrollLeft - this.offsetX),
+        x: px.toPt(rect.left + this.scrollLeft - this.offsetX) + this.margin[3],
         y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY),
       },
       px.toPt(rect.width),
       px.toPt(rect.height),
-      page,
+      page!,
       href,
       linkOptions, // TODO: add Link Options
     );
@@ -912,7 +972,7 @@ export class Generator implements IGenerator {
 
       this.pdf.drawRectangleToPage(
         {
-          x: px.toPt(rect.x - this.offsetX + inlineOffset.x),
+          x: px.toPt(rect.x - this.offsetX + inlineOffset.x) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.y),
         },
         px.toPt(rect.width + inlineOffset.width),
@@ -956,11 +1016,11 @@ export class Generator implements IGenerator {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.y + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.y + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
@@ -973,11 +1033,11 @@ export class Generator implements IGenerator {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
@@ -990,11 +1050,11 @@ export class Generator implements IGenerator {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.top + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX - inlineOffset.left),
+          x: px.toPt(rect.x - this.offsetX - inlineOffset.left) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
@@ -1007,11 +1067,11 @@ export class Generator implements IGenerator {
       // TODO: this can only straight lines in an 90degree angle, not curved or shifted and also not dashed or dotted
       this.pdf.drawLineToPage(
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.top + this.scrollTop - this.offsetY - inlineOffset.top),
         },
         {
-          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right),
+          x: px.toPt(rect.x - this.offsetX + rect.width + inlineOffset.right) + this.margin[3],
           y: this.pageTopOffset - px.toPt(rect.bottom + this.scrollTop - this.offsetY + inlineOffset.bottom),
         },
         {
@@ -1034,12 +1094,12 @@ export class Generator implements IGenerator {
     level: number,
     positionArray: Array<number> = [],
   ): { bookmarks: Array<TBookmarkObject>; positions: Array<number> } {
-    if (!bookmarks.length || bookmarks[bookmarks.length - 1].level === level) {
+    if (!bookmarks.length || bookmarks.at(-1)!.level === level) {
       bookmarks.push({ level, children: [] });
       return { bookmarks, positions: [...positionArray, bookmarks.length] };
     } else {
-      let result = this.findBookmarkPosition(bookmarks[bookmarks.length - 1].children, level, [...positionArray, bookmarks.length]);
-      bookmarks[bookmarks.length - 1].children = result.bookmarks;
+      let result = this.findBookmarkPosition(bookmarks.at(-1)!.children, level, [...positionArray, bookmarks.length]);
+      bookmarks.at(-1)!.children = result.bookmarks;
       return { bookmarks, positions: result.positions };
     }
   }
@@ -1052,7 +1112,7 @@ export class Generator implements IGenerator {
    * @returns
    */
   async enoughSpaceOnPageForElement(element: HTMLElement | Node, rect: DOMRect) {
-    if (element instanceof HTMLElement && this.iframeWin.getComputedStyle(element).display === 'none') {
+    if (element instanceof HTMLElement && this.iframeWin!.getComputedStyle(element).display === 'none') {
       return;
     }
     const yPos = this.currentAvailableHeight - +px.toPt(rect.bottom + this.scrollTop - this.offsetY);
@@ -1092,40 +1152,39 @@ export class Generator implements IGenerator {
     const textWithStyles: Array<TTextNodeData> = [];
 
     const text = element.textContent;
-    const parentStyle = window.getComputedStyle(element.parentElement);
-    const range = document.createRange();
+    const parentStyle = window.getComputedStyle(element.parentElement!);
+    const range = this.iframeDoc!.createRange();
 
     // Get the lines of the text
-    const lineRange = this.iframeDoc.createRange();
+    const lineRange = this.iframeDoc!.createRange();
     lineRange.selectNodeContents(element);
     const lines = lineRange.getClientRects();
 
-
-    let words = text.split(/(\s+)/);
+    let words = text!.split(/(\s+)/);
     // Also split words with hyphens into several parts to also split them at end of a line
-    let replacements = [];
-    words.forEach((word, wordindex) => {
+    let replacements: Array<{ wordIndex: number; parts: Array<string> }> = [];
+    words.forEach((word, wordIndex) => {
       if (word.includes('-') && word.length > 1) {
         let parts = word.split('-');
         parts.forEach((part, index) => {
-          if (index != parts.length - 1) {
+          if (part != parts.at(-1)) {
             parts[index] = `${parts[index]}-`;
           }
         });
-        replacements.push({ wordindex, parts });
+        replacements.push({ wordIndex, parts });
       }
     });
     if (replacements.length > 0) {
       replacements.reverse().forEach((replacement) => {
-        words.splice(replacement.wordindex, 1, ...replacement.parts);
+        words.splice(replacement.wordIndex, 1, ...replacement.parts);
       });
     }
     // remove empty words
     words = words.filter((word) => word.trim().length > 0);
-    
+
     let startOffset = 0;
     words.forEach((word) => {
-      const wordOffset = text.indexOf(word, startOffset);
+      const wordOffset = text!.indexOf(word, startOffset);
       range.setStart(element, wordOffset);
       range.setEnd(element, wordOffset + word.length);
 
@@ -1133,18 +1192,20 @@ export class Generator implements IGenerator {
       // If we have more than one rect we have a line break
       if (rects.length > 1) {
         // This schould be a separate function to make more then one linebreak possible
-        let newParts = [];
+        let newParts: Array<{ rect: DOMRect; text: string }> = [];
         for (let i = 1; i <= word.length; i++) {
           range.setStart(element, wordOffset);
           range.setEnd(element, wordOffset + i);
           const newRects = range.getClientRects();
+          const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
           if (newRects.length > 1) {
             if (parentStyle.hyphens === 'auto') {
               // Hyphanation is activated so we should split the word
               // Caused by the reason that the added hyphen gets its own rect we now that i chars are before.
+
               newParts = [
                 { rect: rects[0], text: `${word.slice(0, i)}-` },
-                { rect: rects[2], text: `${word.slice(i)}` },
+                { rect: rects[isSafari ? 1 : 2], text: `${word.slice(i)}` },
               ];
             } else {
               // No hyphanation so we split the word at the char which is at the end of the line
@@ -1184,7 +1245,7 @@ export class Generator implements IGenerator {
       // Check in which line the element is and add it to words
       if (element.position.top) {
         let line = lineElements.find((line) => line.position.top === element.position.top);
-        line.words.push(element);
+        line!.words.push(element);
       }
     });
 
@@ -1200,7 +1261,7 @@ export class Generator implements IGenerator {
     this.offsetY = yPos + this.scrollTop;
     // We add a new page so we set the end of the old page to the current y position
     if (this.pages.length) {
-      this.pages[this.pages.length - 1].yEnd = this.offsetY;
+      this.pages.at(-1)!.yEnd = this.offsetY;
     }
     this.pdf.addPage(this.pageSize);
     this.currentAvailableHeight = this.availableDefaultPageHeight;
@@ -1215,11 +1276,11 @@ export class Generator implements IGenerator {
     if (this.usePageHeaders && this.currentHeader.length) {
       const tempOffsetY = this.offsetY;
       const tempOffsetX = this.offsetX;
-      const currentHeaderRect = this.currentHeader[this.currentHeader.length - 1].getBoundingClientRect();
+      const currentHeaderRect = this.currentHeader.at(-1)!.getBoundingClientRect();
       this.offsetY = currentHeaderRect.top + this.scrollTop;
       this.offsetX = currentHeaderRect.left + this.scrollLeft;
       this.pageTopOffset = this.pageSize[1] - this.margin[0];
-      await this.goTroughElements(this.createTElement(this.currentHeader[this.currentHeader.length - 1]));
+      await this.goTroughElements(this.createTElement(this.currentHeader.at(-1)!));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
       this.currentHeaderHeight = px.toPt(currentHeaderRect.height);
@@ -1227,23 +1288,23 @@ export class Generator implements IGenerator {
     if (this.usePageFooters && this.currentFooter.length) {
       const tempOffsetY = this.offsetY;
       const tempOffsetX = this.offsetX;
-      const currentFooterRect = this.currentFooter[this.currentFooter.length - 1].getBoundingClientRect();
+      const currentFooterRect = this.currentFooter.at(-1)!.getBoundingClientRect();
       this.offsetY = currentFooterRect.top + this.scrollTop;
       this.offsetX = currentFooterRect.left + this.scrollLeft;
       this.pageTopOffset = px.toPt(currentFooterRect.height) + this.margin[2];
-      await this.goTroughElements(this.createTElement(this.currentFooter[this.currentFooter.length - 1]));
+      await this.goTroughElements(this.createTElement(this.currentFooter.at(-1)!));
       this.offsetY = tempOffsetY;
       this.offsetX = tempOffsetX;
       this.currentFooterHeight = px.toPt(currentFooterRect.height);
     }
-    this.currentAvailableHeight -= this.currentHeaderHeight + this.currentFooterHeight;
+    this.currentAvailableHeight -= this.currentHeaderHeight + this.currentFooterHeight + this.margin[0] + this.margin[2];
 
     // Add the missing values to the last page
     this.pages[this.pages.length - 1] = {
-      ...this.pages[this.pages.length - 1],
+      ...this.pages.at(-1),
       yEnd: this.offsetY + pt.toPx(this.currentAvailableHeight),
-      headerOffset: this.currentHeaderHeight,
-      footerOffset: this.currentFooterHeight,
+      headerOffset: this.currentHeaderHeight + this.margin[0],
+      footerOffset: this.currentFooterHeight + this.margin[2],
     };
     this.pageTopOffset = this.pageSize[1] - this.margin[0] - this.currentHeaderHeight;
   }
@@ -1261,7 +1322,7 @@ export class Generator implements IGenerator {
       // Iterate through all rules of the stylesheet
       const filteredRules = Array.from(styleSheet.cssRules).filter((rule) => rule instanceof CSSFontFaceRule) as Array<CSSFontFaceRule>;
       for (const rule of filteredRules) {
-        const font = {
+        const font: TFontInfo = {
           src: [],
           weight: 400,
           inPDF: false,
@@ -1321,15 +1382,15 @@ export class Generator implements IGenerator {
     ].join(',')}`;
     // if we have a comma at the end, we remove it
     selectors.lastIndexOf(',') === selectors.length - 1 ? (selectors = selectors.slice(0, -1)) : selectors;
-    this.inputEl.querySelectorAll(selectors).forEach((el) => {
+    this.inputEl!.querySelectorAll(selectors).forEach((el) => {
       el.classList.add('htmlWebsite2pdf-ignore');
     });
 
     // Add styles to hide the elements
-    const ignoreElementsStyle = this.iframeDoc.createElement('style');
+    const ignoreElementsStyle = this.iframeDoc!.createElement('style');
     ignoreElementsStyle.id = 'htmlWebsite2pdf-generation-styles';
     ignoreElementsStyle.innerHTML = '.htmlWebsite2pdf-ignore { display: none !important; }';
-    this.iframeDoc.body.appendChild(ignoreElementsStyle);
+    this.iframeDoc!.body.appendChild(ignoreElementsStyle);
   }
 
   /**
@@ -1339,11 +1400,11 @@ export class Generator implements IGenerator {
    */
   showIgnoredElements(): void {
     // remove the hiding class from all elements
-    this.iframeDoc.querySelectorAll('.htmlWebsite2pdf-ignore').forEach((el) => {
+    this.iframeDoc!.querySelectorAll('.htmlWebsite2pdf-ignore').forEach((el) => {
       el.classList.remove('htmlWebsite2pdf-ignore');
     });
     // remove the style tag which added the styles for the hiding class
-    const ignoreElementsStyle = this.iframeDoc.getElementById('htmlWebsite2pdf-generation-styles');
+    const ignoreElementsStyle = this.iframeDoc!.getElementById('htmlWebsite2pdf-generation-styles');
     if (ignoreElementsStyle) {
       ignoreElementsStyle.remove();
     }
@@ -1386,7 +1447,7 @@ export class Generator implements IGenerator {
             this.pageSize[1] -
             +px.toPt(link.el.getBoundingClientRect().bottom + this.scrollTop - pageResult.yStart) -
             this.margin[0] -
-            pageResult.headerOffset,
+            pageResult.headerOffset!,
         };
 
         this.pdf.addInternalLink(position, link.width, link.height, pageResult.pdfPage, result.page, linkOptions);
@@ -1401,9 +1462,9 @@ export class Generator implements IGenerator {
    * @returns {TPageObject|undefined} The page object of the element or undefined if it couldn't be found
    */
   getPageByPosition(top: number, bottom: number): TPageObject | undefined {
-    let pageObj = this.pages.find((element) => element.yStart <= top && element.yStart <= bottom && element.yEnd >= top && element.yEnd >= bottom);
+    let pageObj = this.pages.find((element) => element.yStart <= top && element.yStart <= bottom && element.yEnd! >= top && element.yEnd! >= bottom);
     if (!pageObj) {
-      const index = this.pages.findIndex((element) => element.yEnd >= top);
+      const index = this.pages.findIndex((element) => element.yEnd! >= top);
       if (index) {
         pageObj = this.pages[index + 1];
       }
@@ -1423,8 +1484,8 @@ export class Generator implements IGenerator {
         continue;
       }
       this.offsetY = pageResult.yStart;
-      this.currentHeaderHeight = pageResult.headerOffset;
-      this.pageTopOffset = this.pageSize[1] - this.margin[0] - pageResult.headerOffset;
+      this.currentHeaderHeight = pageResult.headerOffset as number;
+      this.pageTopOffset = this.pageSize[1] - this.margin[0] - pageResult.headerOffset!;
       // set Our values if needed
       if (element.el.dataset?.htmlwebsite2pdfPagenumberbyid) {
         const id = element.el.dataset?.htmlwebsite2pdfPagenumberbyid.replace('#', '');
@@ -1435,6 +1496,7 @@ export class Generator implements IGenerator {
         }
       }
 
+      delete element.el.dataset!.htmlwebsite2pdfPagenumberbyid;
       // Go trough the element and place it thereby
       await this.goTroughElements(element, pageResult.pdfPage);
     }
@@ -1460,19 +1522,19 @@ export class Generator implements IGenerator {
         reject(new Error(`Font ${fontFamily} with weight ${fontWeight} and style ${fontStyle} not found`));
       }
       // Check if the font is already added to the pdf
-      if (!foundFontOfWebsite.inPDF) {
+      if (!foundFontOfWebsite!.inPDF) {
         // TODO: Check if we have a true type font
-        let fontSrc = foundFontOfWebsite.src.find((el) => el.format == 'truetype')?.url;
+        let fontSrc = foundFontOfWebsite!.src.find((el) => el.format == 'truetype')?.url;
         // Load the font from the url
         await fetch(fontSrc!)
           .then((res) => res.arrayBuffer())
           .then((font) => {
-            foundFontOfWebsite.inPDF = true;
+            foundFontOfWebsite!.inPDF = true;
             // Add the font to the pdf
-            this.pdf.addFont(font as Buffer, foundFontOfWebsite.name);
+            this.pdf.addFont(font as Buffer, foundFontOfWebsite!.name as string);
           });
       }
-      resolve(foundFontOfWebsite);
+      resolve(foundFontOfWebsite!);
     });
   }
 }

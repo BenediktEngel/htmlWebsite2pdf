@@ -7,7 +7,6 @@ import { NameObject } from './pdfObjects/BasicObjects/NameObject';
 import { ArrayObject } from './pdfObjects/BasicObjects/ArrayObject';
 import { BooleanObject } from './pdfObjects/BasicObjects/BooleanObject';
 import { DictionaryObject } from './pdfObjects/BasicObjects/DictionaryObject';
-import { IntegerObject } from './pdfObjects/BasicObjects/IntegerObject';
 import { NullObject } from './pdfObjects/BasicObjects/NullObject';
 import { NumericObject } from './pdfObjects/BasicObjects/NumericObject';
 import { StreamObject } from './pdfObjects/BasicObjects/StreamObject';
@@ -130,7 +129,7 @@ export class PDFDocument implements IPDFDocument {
    * Output the header and body of the PDF document as a Buffer.
    * @returns {Buffer} The header and body of the PDF document.
    */
-  private outputHeaderAndBody(): Buffer {
+  private  outputHeaderAndBody(): Buffer {
     let outputBuffer = Buffer.from(`%PDF-${this.version}\r\n%âãÏÒ\r\n`);
     this.indirectObjects.forEach((indirectObject, id) => {
       const temp = indirectObject;
@@ -162,7 +161,8 @@ export class PDFDocument implements IPDFDocument {
     this.createDocumentOutline();
     this.includedFonts.forEach((font, name) => {
       if (font.usedChars.size === 0) {
-        this.indirectObjects.delete(font.fontDictionary.id!);
+        let item = this.indirectObjects.get(font.fontDictionary.id!);
+        this.indirectObjects.set(font.fontDictionary.id!, { obj: item!.obj, generation: item!.generation, byteOffset: undefined, inUse: false});
       } else {
         fontHelper.addFontToDocument(this, font);
       }
@@ -187,9 +187,6 @@ export class PDFDocument implements IPDFDocument {
       this,
       new Map<NameObject, NullObject | NameObject | ArrayObject | BooleanObject | DictionaryObject | NumericObject | StreamObject | StringObject>([
         [NameObject.getName(this, 'MediaBox'), new Rectangle(this, 0, 0, pageDimensions[0], pageDimensions[1])],
-        [NameObject.getName(this, 'Parent'), this.pageTree as DictionaryObject],
-        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Page')],
-        [NameObject.getName(this, 'Resources'), new DictionaryObject(this)],
       ]),
       true,
     );
@@ -215,7 +212,7 @@ export class PDFDocument implements IPDFDocument {
     // Build the cross reference table
     this.indirectObjects.forEach((object, id) => {
       if (!object.byteOffset) throw new Error(`Byte offset for indirect object with id ${id} is not set! Couldn't build cross reference table.`);
-      this.crossReferenceTable.addEntry(id, object.byteOffset, object.generation);
+      this.crossReferenceTable.addEntry(id, object.byteOffset, object.generation, object.inUse);
     });
     this.trailer.setValueByKey('Size', this.crossReferenceTable.size);
     return this.crossReferenceTable.outputTable();
@@ -229,7 +226,7 @@ export class PDFDocument implements IPDFDocument {
    */
   addIndirectObject(obj: BaseObject, generation = 0): number {
     const newObjectId = this.createObjectId();
-    this.indirectObjects.set(newObjectId, { obj, generation });
+    this.indirectObjects.set(newObjectId, { obj, generation, inUse: true});
     return newObjectId;
   }
 
@@ -254,7 +251,6 @@ export class PDFDocument implements IPDFDocument {
     this.catalog = new CatalagDictionary(
       this,
       new Map([
-        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Catalog')],
         [NameObject.getName(this, 'Version'), NameObject.getName(this, this.version)],
         // TODO: Maybe add more values based on Options
       ]),
@@ -287,18 +283,7 @@ export class PDFDocument implements IPDFDocument {
     if (this.pageTree) {
       throw new Error('pageTree already exists');
     }
-    this.pageTree = new PageTree(
-      this,
-      new Map<
-        NameObject,
-        ArrayObject | BooleanObject | DictionaryObject | IntegerObject | NameObject | NullObject | NumericObject | StreamObject | StringObject
-      >([
-        [NameObject.getName(this, 'Type'), NameObject.getName(this, 'Pages')],
-        [NameObject.getName(this, 'Kids'), new ArrayObject(this)],
-        [NameObject.getName(this, 'Count'), new NumericObject(this, 0)],
-      ]),
-      true,
-    );
+    this.pageTree = new PageTree(this, new Map([]), true);
     if (!this.catalog) {
       this.createCatalog();
     }
@@ -392,7 +377,7 @@ export class PDFDocument implements IPDFDocument {
       }
     }
     // get current (last) PageObject
-    let currentPage = undefined;
+    let currentPage: Page | undefined = undefined;
     if (typeof pageId === 'number' || pageId === undefined) {
       currentPage = this.getPageAt(pageId);
     } else {
@@ -400,7 +385,7 @@ export class PDFDocument implements IPDFDocument {
     }
 
     // If resources dont include the font add it
-    const currentPageResources = this.getPageRessources(currentPage);
+    const currentPageResources = this.getPageRessources(currentPage!);
     const fontResource = currentPageResources.getValueByKey('Font');
     if (!fontResource) {
       // We dont have a font resource, create a new one
@@ -432,7 +417,7 @@ export class PDFDocument implements IPDFDocument {
     }
     // Add content to contents
     this.appendToPageContents(
-      currentPage,
+      currentPage!,
       Buffer.from(`BT /${fontName} ${fontSize} Tf ${colorString} ${wordspaceString} ${newX} ${pos.y} Td <${hexString}> Tj ET`),
     );
   }
@@ -535,13 +520,7 @@ export class PDFDocument implements IPDFDocument {
    */
   drawRectangleToPage(pos: TPosition, width: number, height: number, page?: number): void;
   drawRectangleToPage(pos: TPosition, width: number, height: number, options: TRectangleOptions, page?: number): void;
-  drawRectangleToPage(
-    pos: TPosition,
-    width: number,
-    height: number,
-    pageOrOptions: TRectangleOptions | number | undefined,
-    page?: number,
-  ): void {
+  drawRectangleToPage(pos: TPosition, width: number, height: number, pageOrOptions: TRectangleOptions | number | undefined, page?: number): void {
     let pageId;
     let options;
     if (typeof pageOrOptions === 'number' || pageOrOptions === undefined) {

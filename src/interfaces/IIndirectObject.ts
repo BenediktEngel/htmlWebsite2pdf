@@ -4,4 +4,5 @@ export interface IIndirectObject {
   obj: IBaseObject;
   generation: number;
   byteOffset?: number;
+  inUse: boolean;
 }
